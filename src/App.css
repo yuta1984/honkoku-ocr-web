@@ -429,7 +429,14 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
   overflow: hidden;
 }
-.dlmenu-block .dlmenu-list { left: 0; right: 0; }
+/* 一括メニューはサイドバー下部にあるため上向きに開く（フッターと重ならない） */
+.dlmenu-block .dlmenu-list {
+  left: 0; right: 0;
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 6px;
+}
 .dlmenu-list button {
   display: block;
   width: 100%;
