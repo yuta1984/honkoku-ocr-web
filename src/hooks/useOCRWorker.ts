@@ -2,8 +2,8 @@ import { useRef, useState, useCallback, useEffect } from 'react'
 import type { LayoutResult, LineBox, ModelState } from '../types/ocr'
 import type { WorkerInMessage, WorkerOutMessage } from '../types/worker'
 import type { RecWorkerInMessage, RecWorkerOutMessage, RecJob } from '../types/recognition-worker'
-import { cropLines } from '../utils/imageLoader'
-import RecognitionWorkerFactory from '../worker/recognition.worker.ts?worker'
+import { cropLines } from '../lib/imageLoader'
+import RecognitionWorkerFactory from '../ocr/recognition.worker.ts?worker'
 
 // 認識ワーカー数: CPU 数に応じて増やすが、各ワーカーが encoder+decoder セッションを
 // 1 組ずつ持つためメモリ上限として MAX で抑える。
@@ -33,7 +33,7 @@ export function useOCRWorker() {
   const layoutPending = useRef<Map<string, { resolve: (r: LayoutResult) => void; reject: (e: Error) => void }>>(new Map())
 
   useEffect(() => {
-    const ocrWorker = new Worker(new URL('../worker/ocr.worker.ts', import.meta.url), { type: 'module' })
+    const ocrWorker = new Worker(new URL('../ocr/ocr.worker.ts', import.meta.url), { type: 'module' })
     ocrWorkerRef.current = ocrWorker
 
     const recWorkers = Array.from({ length: N_REC_WORKERS }, () => new RecognitionWorkerFactory())

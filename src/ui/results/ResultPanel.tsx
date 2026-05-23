@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import * as Koji from 'koji-lang'
 import type { PageItem } from '../../types/ocr'
-import { rawToKoji } from '../../utils/koji'
-import { downloadPages, pageBaseName, type ExportFormat } from '../../utils/textExport'
+import { rawToKoji } from '../../lib/koji'
+import { downloadPages, pageBaseName, type ExportFormat } from '../../lib/textExport'
 import { DownloadMenu } from '../common/DownloadMenu'
-import '../../koji-view.css'
+import '../../styles/koji-view.css'
 
 interface ResultPanelProps {
   item: PageItem | null

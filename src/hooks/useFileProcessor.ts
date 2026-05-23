@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import type { ProcessedImage } from '../types/ocr'
-import { fileToProcessedImage, tiffToProcessedImages, isTiffFile, isHeicFile } from '../utils/imageLoader'
-import { pdfToProcessedImages } from '../utils/pdfLoader'
+import { fileToProcessedImage, tiffToProcessedImages, isTiffFile, isHeicFile } from '../lib/imageLoader'
+import { pdfToProcessedImages } from '../lib/pdfLoader'
 
 export interface FileLoadingState {
   fileName: string

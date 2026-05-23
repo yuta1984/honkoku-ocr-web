@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { clearModelCache } from '../../worker/model-loader'
+import { clearModelCache } from '../../ocr/model-loader'
 
 interface SettingsModalProps {
   onClose: () => void

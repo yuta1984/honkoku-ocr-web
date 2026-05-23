@@ -1,4 +1,4 @@
-import type { Language } from '../../i18n'
+import type { Language } from '../../hooks/useLang'
 
 interface HeaderProps {
   lang: Language

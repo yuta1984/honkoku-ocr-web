@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import OpenSeadragon from 'openseadragon'
 import type { LineBox, RegionBox, BoundingBox } from '../../types/ocr'
-import { rawToKoji } from '../../utils/koji'
+import { rawToKoji } from '../../lib/koji'
 import { LAYOUT_CLASS } from '../../types/ocr'
 
 interface ImageViewerProps {

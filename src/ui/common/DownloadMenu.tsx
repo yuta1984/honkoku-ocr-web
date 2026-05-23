@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import type { ExportFormat } from '../../utils/textExport'
+import type { ExportFormat } from '../../lib/textExport'
 
 interface DownloadMenuProps {
   label: string
