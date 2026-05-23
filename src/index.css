@@ -1,0 +1,38 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #f4f1ea;
+  --panel: #ffffff;
+  --ink: #2b2b2b;
+  --muted: #6b6b6b;
+  --line: #ddd6c9;
+  --accent: #8a5a2b;       /* 墨茶 */
+  --accent-strong: #6d4420;
+  --hand: #d9534f;         /* 手書き行 */
+  --type: #2f6f9f;         /* 活字行 */
+  --region: #b58b2a;       /* 図版/印判 */
+  --ok: #3a8d4f;
+  font-family: "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+  color: var(--ink);
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); }
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+h1, h2, h3 { margin: 0; font-weight: 600; }

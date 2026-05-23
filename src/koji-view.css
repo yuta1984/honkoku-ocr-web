@@ -1,0 +1,157 @@
+/* koji-lang convertToHTML 出力（閲覧モード）用スタイル
+ * 提供CSSをそのまま適用（ネイティブCSSネスト使用）。 */
+.koji {
+  writing-mode: vertical-rl;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  background: white;
+  padding: 5px;
+  font-size: 16px;
+  border-top: 1px #cacaca solid;
+  font-family: '\6E38\660E\671D', YuMincho,
+    '\30D2\30E9\30AE\30CE\660E\671D ProN W3',
+    'Hiragino Mincho ProN', 'HG\660E\671D E',
+    '\FF2D\FF33 \FF30\660E\671D', '\FF2D\FF33 \660E\671D',
+    serif;
+  .Title {
+    display: inline-block;
+  }
+  .Warigaki {
+    display: inline-table;
+    -webkit-writing-mode: vertical-rl;
+    writing-mode: vertical-rl;
+    -ms-writing-mode: vertical-rl;
+    -moz-writing-mode: vertical-rl;
+    vertical-align: middle;
+    line-height: 300%;
+  }
+  .warigaki-line {
+    font-size: 11px;
+    display: table-row;
+    line-height: 240%;
+  }
+  .hako {
+    margin: 2px;
+    border: 1px solid black;
+    display: inline;
+  }
+  .Inline[name='箱'] {
+    border: solid 1px black;
+  }
+  .Inline[name='右線'] {
+    border-right: solid 1px black;
+  }
+  .Annotation {
+    color: red;
+    &:before {
+      content: '\1F4AC';
+      font-size: 12px;
+      margin: 5px 0 -5px;
+    }
+  }
+  .Dubious,
+  .BugHole {
+    background-color: yellow;
+    &:after {
+      font-size: 5px;
+    }
+  }
+  .Illegible:after {
+    content: '\2753';
+    font-size: 50%;
+  }
+  .BugHole:after {
+    content: '🐛';
+    font-size: 50%;
+  }
+  .Kaeriten {
+    font-size: 50%;
+    vertical-align: sub;
+  }
+  .Okurigana {
+    font-size: 50%;
+    vertical-align: super;
+  }
+
+  .Furigana {
+    line-height: 220%;
+    position: relative;
+    .furigana-left {
+      font-size: 0.55em;
+      position: absolute;
+      height: 100%;
+      left: -2.4em;
+      white-space: nowrap;
+      top: 0.15em;
+      text-align: justify;
+      text-align-last: justify;
+      letter-spacing: 0;
+      white-space: pre;
+    }
+    .furigana-right {
+      white-space: pre;
+    }
+    @supports (-moz-user-select: none) {
+      .furigana-left {
+        left: -1.2em; /* Firefox用に微調整 */
+      }
+    }
+  }
+  .Place {
+    color: blue;
+    text-decoration: overline dotted;
+    &::before {
+      content: '📍';
+      font-size: 30%;
+    }
+  }
+
+  .Endnote {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    vertical-align: top;
+    font-size: 0.8em;
+    color: red;
+    writing-mode: horizontal-tb;
+    &:hover {
+      background-color: rgba(255, 255, 0, 0.3);
+    }
+  }
+}
+
+/* OCR Result Styles */
+.ocr-result-container {
+  writing-mode: vertical-rl;
+  width: 100%;
+  height: 100%;
+  overflow-x: scroll;
+  background: white;
+  padding: 5px;
+  font-size: 16px;
+  border-top: 1px #cacaca solid;
+  font-family: '\6E38\660E\671D', YuMincho,
+    '\30D2\30E9\30AE\30CE\660E\671D ProN W3',
+    'Hiragino Mincho ProN', 'HG\660E\671D E',
+    '\FF2D\FF33 \FF30\660E\671D', '\FF2D\FF33 \660E\671D',
+    serif;
+
+  .ocr-result-text {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: '\6E38\660E\671D', YuMincho,
+      '\30D2\30E9\30AE\30CE\660E\671D ProN W3',
+      'Hiragino Mincho ProN', 'HG\660E\671D E',
+      '\FF2D\FF33 \FF30\660E\671D', '\FF2D\FF33 \660E\671D',
+      serif;
+  }
+}

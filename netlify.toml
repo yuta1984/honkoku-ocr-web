@@ -1,0 +1,12 @@
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+# 注: onnxruntime-web は単一スレッドで動作させるため COOP/COEP は付与しない
+# （付けると外部 R2 等からのクロスオリジン・モデル取得がブロックされる）。
+
+# SPAフォールバック
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
