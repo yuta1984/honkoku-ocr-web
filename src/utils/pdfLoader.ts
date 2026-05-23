@@ -3,7 +3,7 @@
  */
 
 import type { ProcessedImage } from '../types/ocr'
-import { makeThumbnailDataUrl } from './imageLoader'
+import { makeThumbnailDataUrl, MAX_IMAGE_DIM } from './imageLoader'
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 let pdfjsLib: typeof import('pdfjs-dist') | null = null
@@ -33,7 +33,10 @@ export async function pdfToProcessedImages(
     if (onProgress) onProgress(pageNum, totalPages)
 
     const page = await pdf.getPage(pageNum)
-    const viewport = page.getViewport({ scale })
+    // レンダリング解像度の上限（長辺 MAX_IMAGE_DIM）。大きなページでメモリ枯渇しないよう scale を抑える。
+    const base = page.getViewport({ scale: 1 })
+    const effScale = Math.min(scale, MAX_IMAGE_DIM / Math.max(base.width, base.height))
+    const viewport = page.getViewport({ scale: effScale })
 
     const canvas = document.createElement('canvas')
     canvas.width = viewport.width

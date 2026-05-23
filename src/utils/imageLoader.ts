@@ -7,6 +7,53 @@ import type { ProcessedImage } from '../types/ocr'
 
 const THUMBNAIL_MAX_WIDTH = 200
 
+// 登録画像の長辺上限(px)。10MB級のJPEG等を展開したフル解像度 ImageData を多数保持すると
+// メモリが枯渇する（例 5000×7000 ≈ 140MB/枚）。読み込み時にこの上限へ縮小して保持する。
+// OCRモデル入力は 1行あたり 128×1024px 固定で、3500px なら密なページでも行幅が128px以上を
+// 保てるため（＝モデル入力へは縮小方向）、認識精度は実質落ちない。
+export const MAX_IMAGE_DIM = 3500
+
+function fitScale(w: number, h: number): number {
+  return Math.min(1, MAX_IMAGE_DIM / Math.max(w, h))
+}
+
+/** <img> を上限内に収めて ImageData 化（縮小描画でフル解像度の確保を避ける） */
+function imageElementToImageData(img: HTMLImageElement): ImageData {
+  const sw = img.naturalWidth || img.width
+  const sh = img.naturalHeight || img.height
+  const scale = fitScale(sw, sh)
+  const w = Math.max(1, Math.round(sw * scale))
+  const h = Math.max(1, Math.round(sh * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')!
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, 0, 0, w, h)
+  return ctx.getImageData(0, 0, w, h)
+}
+
+/** 既存 ImageData が上限を超える場合のみ縮小（TIFF 用） */
+function maybeDownscaleImageData(src: ImageData): ImageData {
+  const scale = fitScale(src.width, src.height)
+  if (scale >= 1) return src
+  const w = Math.max(1, Math.round(src.width * scale))
+  const h = Math.max(1, Math.round(src.height * scale))
+  const srcCanvas = document.createElement('canvas')
+  srcCanvas.width = src.width
+  srcCanvas.height = src.height
+  srcCanvas.getContext('2d')!.putImageData(src, 0, 0)
+  const dst = document.createElement('canvas')
+  dst.width = w
+  dst.height = h
+  const ctx = dst.getContext('2d')!
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(srcCanvas, 0, 0, w, h)
+  return ctx.getImageData(0, 0, w, h)
+}
+
 export function isTiffFile(file: File): boolean {
   if (file.type === 'image/tiff') return true
   const ext = file.name.toLowerCase().split('.').pop()
@@ -41,7 +88,7 @@ export async function tiffToProcessedImages(file: File): Promise<ProcessedImage[
     const w = ifds[i].width
     const h = ifds[i].height
     const rgba = UTIF.toRGBA8(ifds[i])
-    const imageData = new ImageData(new Uint8ClampedArray(rgba), w, h)
+    const imageData = maybeDownscaleImageData(new ImageData(new Uint8ClampedArray(rgba), w, h))
     const thumbnailDataUrl = makeThumbnailDataUrl(imageData)
     results.push({
       fileName: file.name,
@@ -72,13 +119,9 @@ async function blobToImageData(blob: Blob, name: string): Promise<ImageData> {
     const img = new Image()
     const url = URL.createObjectURL(blob)
     img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
-      const ctx = canvas.getContext('2d')!
-      ctx.drawImage(img, 0, 0)
+      const data = imageElementToImageData(img)
       URL.revokeObjectURL(url)
-      resolve(ctx.getImageData(0, 0, canvas.width, canvas.height))
+      resolve(data)
     }
     img.onerror = () => {
       URL.revokeObjectURL(url)
@@ -94,13 +137,9 @@ async function standardImageToImageData(file: File): Promise<ImageData> {
     const url = URL.createObjectURL(file)
 
     img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
-      const ctx = canvas.getContext('2d')!
-      ctx.drawImage(img, 0, 0)
+      const data = imageElementToImageData(img)
       URL.revokeObjectURL(url)
-      resolve(ctx.getImageData(0, 0, canvas.width, canvas.height))
+      resolve(data)
     }
 
     img.onerror = () => {
