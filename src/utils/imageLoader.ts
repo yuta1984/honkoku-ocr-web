@@ -66,15 +66,50 @@ export function isHeicFile(file: File): boolean {
   return ext === 'heic' || ext === 'heif'
 }
 
+/** ImageData → 縮小済み JPEG Blob（保持はこの圧縮済みBlobで行いRAMを節約） */
+async function imageDataToBlob(imageData: ImageData, quality = 0.9): Promise<Blob> {
+  const canvas = document.createElement('canvas')
+  canvas.width = imageData.width
+  canvas.height = imageData.height
+  canvas.getContext('2d')!.putImageData(imageData, 0, 0)
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/jpeg', quality)
+  })
+}
+
+/** ImageData を ProcessedImage（Blob + サムネ + 寸法）に詰める */
+export async function packImageData(imageData: ImageData, fileName: string, pageIndex?: number): Promise<ProcessedImage> {
+  return {
+    fileName,
+    pageIndex,
+    blob: await imageDataToBlob(imageData),
+    width: imageData.width,
+    height: imageData.height,
+    thumbnailDataUrl: makeThumbnailDataUrl(imageData),
+  }
+}
+
+/** Blob（縮小済みJPEG）→ ImageData。レイアウト/OCR の処理直前にだけ展開して使い、終わったら破棄する。 */
+export function decodeBlobToImageData(blob: Blob): Promise<ImageData> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(blob)
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      canvas.getContext('2d')!.drawImage(img, 0, 0)
+      URL.revokeObjectURL(url)
+      resolve(canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height))
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('decode failed')) }
+    img.src = url
+  })
+}
+
 export async function fileToProcessedImage(file: File): Promise<ProcessedImage> {
   const imageData = await fileToImageData(file)
-  const thumbnailDataUrl = makeThumbnailDataUrl(imageData)
-
-  return {
-    fileName: file.name,
-    imageData,
-    thumbnailDataUrl,
-  }
+  return packImageData(imageData, file.name)
 }
 
 /** TIFF ファイル（複数ページ対応）→ ProcessedImage[] */
@@ -89,13 +124,7 @@ export async function tiffToProcessedImages(file: File): Promise<ProcessedImage[
     const h = ifds[i].height
     const rgba = UTIF.toRGBA8(ifds[i])
     const imageData = maybeDownscaleImageData(new ImageData(new Uint8ClampedArray(rgba), w, h))
-    const thumbnailDataUrl = makeThumbnailDataUrl(imageData)
-    results.push({
-      fileName: file.name,
-      pageIndex: ifds.length > 1 ? i + 1 : undefined,
-      imageData,
-      thumbnailDataUrl,
-    })
+    results.push(await packImageData(imageData, file.name, ifds.length > 1 ? i + 1 : undefined))
   }
 
   return results

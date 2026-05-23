@@ -3,7 +3,7 @@
  */
 
 import type { ProcessedImage } from '../types/ocr'
-import { makeThumbnailDataUrl, MAX_IMAGE_DIM } from './imageLoader'
+import { packImageData, MAX_IMAGE_DIM } from './imageLoader'
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 let pdfjsLib: typeof import('pdfjs-dist') | null = null
@@ -46,14 +46,7 @@ export async function pdfToProcessedImages(
     await page.render({ canvasContext: ctx, viewport }).promise
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    const thumbnailDataUrl = makeThumbnailDataUrl(imageData)
-
-    images.push({
-      fileName: file.name,
-      pageIndex: pageNum,
-      imageData,
-      thumbnailDataUrl,
-    })
+    images.push(await packImageData(imageData, file.name, pageNum))
   }
 
   return images

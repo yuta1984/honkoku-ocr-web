@@ -8,7 +8,7 @@ import { Footer } from './components/layout/Footer'
 import { ImageViewer } from './components/viewer/ImageViewer'
 import { ResultPanel } from './components/results/ResultPanel'
 import { SettingsModal } from './components/settings/SettingsModal'
-import { imageDataToDataUrl } from './utils/imageLoader'
+import { decodeBlobToImageData } from './utils/imageLoader'
 import './App.css'
 
 const STATUS_LABEL: Record<ImageStatus, { ja: string; en: string; cls: string }> = {
@@ -36,17 +36,20 @@ export default function App() {
   const pagesRef = useRef<PageItem[]>(pages)
   useEffect(() => { pagesRef.current = pages }, [pages])
 
-  // フル解像度 ImageData は React state に置かず id キーの Map で別管理する
-  // （巨大バッファを props/state に載せると React dev の描画ログが破綻するため）。
-  const imageStore = useRef<Map<string, ImageData>>(new Map())
+  // 画像は「縮小済み圧縮Blob」で保持し、展開(ImageData化)は処理時に遅延する（メモリ節約）。
+  // React state には載せず id キーの Map で別管理。
+  const imageStore = useRef<Map<string, Blob>>(new Map())
 
   const selectedPage = useMemo(() => pages.find((p) => p.id === selectedId) ?? null, [pages, selectedId])
 
-  // 選択画像の全解像度 DataUrl（OSD 用）。選択が変わったときだけ store から再エンコード。
+  // 選択画像の表示用 URL（OSD）。Blob の object URL を直接渡し、巨大 ImageData をJSヒープに置かない。
   const [selectedDataUrl, setSelectedDataUrl] = useState('')
   useEffect(() => {
-    const img = selectedId ? imageStore.current.get(selectedId) : undefined
-    setSelectedDataUrl(img ? imageDataToDataUrl(img, 0.9) : '')
+    const blob = selectedId ? imageStore.current.get(selectedId) : undefined
+    if (!blob) { setSelectedDataUrl(''); return }
+    const url = URL.createObjectURL(blob)
+    setSelectedDataUrl(url)
+    return () => URL.revokeObjectURL(url)
   }, [selectedId])
 
   const updatePage = useCallback((id: string, patch: Partial<PageItem>) => {
@@ -112,15 +115,15 @@ export default function App() {
         const base = prev.length
         const items: PageItem[] = imgs.map((img, i) => {
           const id = `page-${Date.now()}-${base + i}`
-          // フル解像度 ImageData は state に入れず Map へ
-          imageStore.current.set(id, img.imageData)
+          // 圧縮Blobを Map へ（展開は処理時に遅延）
+          imageStore.current.set(id, img.blob)
           return {
             id,
             index: base + i + 1,
             fileName: img.fileName,
             pageIndex: img.pageIndex,
-            width: img.imageData.width,
-            height: img.imageData.height,
+            width: img.width,
+            height: img.height,
             thumbnailDataUrl: img.thumbnailDataUrl,
             status: 'unprocessed' as const,
             lines: [],
@@ -197,10 +200,11 @@ export default function App() {
       for (let i = 0; i < targets.length; i++) {
         const id = targets[i]
         const page = pagesRef.current.find((p) => p.id === id)!
-        const imageData = imageStore.current.get(id)
-        if (!imageData) continue
+        const blob = imageStore.current.get(id)
+        if (!blob) continue
         setJob((j) => ({ ...j, current: i + 1, detail: 0, message: `${page.fileName} を解析中...` }))
         try {
+          const imageData = await decodeBlobToImageData(blob) // 処理直前に展開
           const { lines, regions } = await detectLayout(imageData)
           updatePage(id, { lines, regions, status: 'layout' })
         } catch (err) {
@@ -221,9 +225,10 @@ export default function App() {
       for (let i = 0; i < targets.length; i++) {
         const id = targets[i]
         let page = pagesRef.current.find((p) => p.id === id)!
-        const imageData = imageStore.current.get(id)
-        if (!imageData) continue
+        const blob = imageStore.current.get(id)
+        if (!blob) continue
         setJob((j) => ({ ...j, current: i + 1, detail: 0, message: `${page.fileName}` }))
+        const imageData = await decodeBlobToImageData(blob) // 処理直前に展開（このループ反復のみ保持）
 
         // レイアウト未実施なら先に検出
         if (page.status === 'unprocessed' || page.lines.length === 0) {

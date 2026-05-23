@@ -65,7 +65,9 @@ export interface PageItem {
 export interface ProcessedImage {
   fileName: string
   pageIndex?: number
-  imageData: ImageData
+  blob: Blob          // 縮小済み JPEG。展開(ImageData化)は処理時に遅延して行う（メモリ節約）
+  width: number       // blob の画素幅（縮小後）
+  height: number
   thumbnailDataUrl: string
 }
 
