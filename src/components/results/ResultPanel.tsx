@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import * as Koji from 'koji-lang'
 import type { PageItem } from '../../types/ocr'
 import { rawToKoji } from '../../utils/koji'
+import { downloadPages, pageBaseName, type ExportFormat } from '../../utils/textExport'
+import { DownloadMenu } from '../common/DownloadMenu'
 import '../../koji-view.css'
 
 interface ResultPanelProps {
@@ -40,6 +42,16 @@ export function ResultPanel({ item, selectedOrder, onSelectLine, lang }: ResultP
       return ''
     }
   }, [mode, kojiSource])
+
+  const handleDownload = async (fmt: ExportFormat) => {
+    if (!item) return
+    try {
+      await downloadPages([item], fmt, pageBaseName(item), false)
+    } catch (e) {
+      console.error('export failed:', e)
+      alert(lang === 'ja' ? 'ファイル変換に失敗しました' : 'Export failed')
+    }
+  }
 
   const handleCopy = async () => {
     try {
@@ -103,9 +115,12 @@ export function ResultPanel({ item, selectedOrder, onSelectLine, lang }: ResultP
             </button>
           </div>
           {ocrLines.length > 0 && (
-            <button className="btn-mini" onClick={handleCopy} title={lang === 'ja' ? 'コピー' : 'Copy'}>
-              {copied ? (lang === 'ja' ? '✓' : '✓') : (lang === 'ja' ? 'コピー' : 'Copy')}
-            </button>
+            <>
+              <button className="btn-mini" onClick={handleCopy} title={lang === 'ja' ? 'コピー' : 'Copy'}>
+                {copied ? (lang === 'ja' ? '✓' : '✓') : (lang === 'ja' ? 'コピー' : 'Copy')}
+              </button>
+              <DownloadMenu label={lang === 'ja' ? '保存' : 'Save'} onSelect={handleDownload} />
+            </>
           )}
         </div>
       </div>

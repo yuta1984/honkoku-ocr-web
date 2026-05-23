@@ -414,6 +414,34 @@
   border-radius: 6px; padding: 3px 10px; font-size: 0.76rem;
 }
 
+/* ダウンロードのドロップダウン */
+.dlmenu { position: relative; display: inline-block; }
+.dlmenu-block { display: block; }
+.dlmenu-list {
+  position: absolute;
+  z-index: 80;
+  right: 0;
+  margin-top: 4px;
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+.dlmenu-block .dlmenu-list { left: 0; right: 0; }
+.dlmenu-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+.dlmenu-list button:hover { background: #f0e6d6; }
+
 /* ===== フッター ===== */
 .footer {
   flex: 0 0 auto;

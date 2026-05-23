@@ -8,7 +8,9 @@ import { Footer } from './components/layout/Footer'
 import { ImageViewer } from './components/viewer/ImageViewer'
 import { ResultPanel } from './components/results/ResultPanel'
 import { SettingsModal } from './components/settings/SettingsModal'
+import { DownloadMenu } from './components/common/DownloadMenu'
 import { decodeBlobToImageData } from './utils/imageLoader'
+import { downloadPages, type ExportFormat } from './utils/textExport'
 import './App.css'
 
 const STATUS_LABEL: Record<ImageStatus, { ja: string; en: string; cls: string }> = {
@@ -293,6 +295,16 @@ export default function App() {
   const selectedNeedsLayout = !selectedPage || selectedPage.status === 'unprocessed'
   const anyUnprocessed = pages.length === 0 || pages.some((p) => p.status === 'unprocessed')
   const ocrHint = lang === 'ja' ? '先にレイアウト認識を実行してください' : 'Run layout recognition first'
+  const ocrPages = pages.filter((p) => p.lines.some((l) => l.raw != null))
+  const handleBatchDownload = async (fmt: ExportFormat) => {
+    if (ocrPages.length === 0) return
+    try {
+      await downloadPages(ocrPages, fmt, `みんなで翻刻OCR_${ocrPages.length}件`, true)
+    } catch (e) {
+      console.error('export failed:', e)
+      alert(lang === 'ja' ? 'ファイル変換に失敗しました' : 'Export failed')
+    }
+  }
 
   return (
     <div className="app">
@@ -402,6 +414,12 @@ export default function App() {
               >
                 {lang === 'ja' ? '全画像OCR実行' : 'OCR all'}
               </button>
+              <DownloadMenu
+                label={lang === 'ja' ? '認識テキストを保存' : 'Download text'}
+                block
+                disabled={ocrPages.length === 0}
+                onSelect={handleBatchDownload}
+              />
               <button className="btn btn-text btn-block" disabled={busy} onClick={handleClearAll}>
                 {lang === 'ja' ? 'すべてクリア' : 'Clear all'}
               </button>
