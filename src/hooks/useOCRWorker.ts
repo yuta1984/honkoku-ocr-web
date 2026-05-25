@@ -2,6 +2,7 @@ import { useRef, useState, useCallback, useEffect } from 'react'
 import type { LayoutResult, LineBox, ModelState } from '../types/ocr'
 import type { WorkerInMessage, WorkerOutMessage } from '../types/worker'
 import type { RecWorkerInMessage, RecWorkerOutMessage, RecJob } from '../types/recognition-worker'
+import type { OcrModelVersion } from '../ocr/model-loader'
 import { cropLines } from '../lib/imageLoader'
 import RecognitionWorkerFactory from '../ocr/recognition.worker.ts?worker'
 
@@ -23,7 +24,7 @@ const initialModelState: ModelState = {
   message: '初期化中...',
 }
 
-export function useOCRWorker() {
+export function useOCRWorker(modelVersion: OcrModelVersion) {
   const ocrWorkerRef = useRef<Worker | null>(null)
   const recWorkersRef = useRef<Worker[]>([])
   const [isReady, setIsReady] = useState(false)
@@ -33,6 +34,11 @@ export function useOCRWorker() {
   const layoutPending = useRef<Map<string, { resolve: (r: LayoutResult) => void; reject: (e: Error) => void }>>(new Map())
 
   useEffect(() => {
+    // version 変更時はワーカーを作り直す（cleanup で旧ワーカーを終了 → 再初期化）。
+    // 前版の ready 状態が残らないようリセットしてから起動する。
+    setIsReady(false)
+    setModelState(initialModelState)
+
     const ocrWorker = new Worker(new URL('../ocr/ocr.worker.ts', import.meta.url), { type: 'module' })
     ocrWorkerRef.current = ocrWorker
 
@@ -60,7 +66,7 @@ export function useOCRWorker() {
           }
         }
         w.addEventListener('message', onReady)
-        w.postMessage({ type: 'REC_INIT' } satisfies RecWorkerInMessage)
+        w.postMessage({ type: 'REC_INIT', version: modelVersion } satisfies RecWorkerInMessage)
       })
     }
 
@@ -97,7 +103,7 @@ export function useOCRWorker() {
     }
 
     // 初期状態は initialModelState（loading_model）。ここでは worker を起動するだけ。
-    ocrWorker.postMessage({ type: 'INITIALIZE' } satisfies WorkerInMessage)
+    ocrWorker.postMessage({ type: 'INITIALIZE', version: modelVersion } satisfies WorkerInMessage)
 
     return () => {
       ocrWorker.postMessage({ type: 'TERMINATE' } satisfies WorkerInMessage)
@@ -110,7 +116,7 @@ export function useOCRWorker() {
       recWorkersRef.current = []
       pending.clear()
     }
-  }, [])
+  }, [modelVersion])
 
   /** レイアウト認識（行/領域検出 + 読み順）。読み順付きの行を返す。 */
   const detectLayout = useCallback((imageData: ImageData): Promise<LayoutResult> => {

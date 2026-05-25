@@ -1,12 +1,14 @@
 /** 認識 Worker（enc-dec 文字認識担当・CPU数ぶん並列起動）のメッセージ */
 
+import type { OcrModelVersion } from '../ocr/model-loader'
+
 export interface RecJob {
   id: number              // 行のインデックス
   croppedImageData: ImageData
 }
 
 export type RecWorkerInMessage =
-  | { type: 'REC_INIT' }
+  | { type: 'REC_INIT'; version: OcrModelVersion }
   | { type: 'REC_PROCESS'; jobs: RecJob[] }
   | { type: 'REC_TERMINATE' }
 

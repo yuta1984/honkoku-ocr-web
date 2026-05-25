@@ -10,7 +10,8 @@
  */
 
 import './onnx-config'
-import { loadModel } from './model-loader'
+import { loadModel, DEFAULT_OCR_VERSION } from './model-loader'
+import type { OcrModelVersion } from './model-loader'
 import { LayoutDetector } from './layout-detector'
 import { ReadingOrderProcessor } from './reading-order'
 import type { WorkerInMessage, WorkerOutMessage } from '../types/worker'
@@ -19,6 +20,8 @@ class LayoutWorker {
   private detector: LayoutDetector | null = null
   private readingOrder = new ReadingOrderProcessor()
   private initialized = false
+  // OCR モデルの版。INITIALIZE で受け取り、認識ワーカーと同じ版をキャッシュさせる。
+  version: OcrModelVersion = DEFAULT_OCR_VERSION
 
   private post(message: WorkerOutMessage) {
     self.postMessage(message)
@@ -38,11 +41,11 @@ class LayoutWorker {
         })
       }
 
-      // 3 モデルを並列ダウンロード（IndexedDB へキャッシュ）
+      // 3 モデルを並列ダウンロード（IndexedDB へキャッシュ）。OCR enc-dec は version 別。
       const [layoutData] = await Promise.all([
         loadModel('layout', (p) => { progresses.layout = p; report() }),
-        loadModel('ocrEncoder', (p) => { progresses.encoder = p; report() }),
-        loadModel('ocrDecoder', (p) => { progresses.decoder = p; report() }),
+        loadModel('ocrEncoder', (p) => { progresses.encoder = p; report() }, this.version),
+        loadModel('ocrDecoder', (p) => { progresses.decoder = p; report() }, this.version),
       ])
 
       this.post({ type: 'INIT_PROGRESS', progress: 0.98, message: 'レイアウトモデルを準備中...' })
@@ -74,6 +77,7 @@ self.onmessage = async (event: MessageEvent<WorkerInMessage>) => {
   const msg = event.data
   switch (msg.type) {
     case 'INITIALIZE':
+      worker.version = msg.version
       await worker.initialize()
       break
     case 'LAYOUT_DETECT':

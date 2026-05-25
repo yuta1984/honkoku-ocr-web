@@ -24,8 +24,8 @@ self.onmessage = async (e: MessageEvent<RecWorkerInMessage>) => {
   if (msg.type === 'REC_INIT') {
     try {
       const [encData, decData] = await Promise.all([
-        loadModel('ocrEncoder'),
-        loadModel('ocrDecoder'),
+        loadModel('ocrEncoder', undefined, msg.version),
+        loadModel('ocrDecoder', undefined, msg.version),
       ])
       recognizer = new TextRecognizer()
       await recognizer.initialize(encData, decData)

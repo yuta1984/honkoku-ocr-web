@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import type { JobProgress } from './types/ocr'
 import { useLang } from './hooks/useLang'
+import { useModelVersion } from './hooks/useModelVersion'
 import { useOCRWorker } from './hooks/useOCRWorker'
 import { usePageStore } from './hooks/usePageStore'
 import { Header } from './ui/layout/Header'
@@ -20,7 +21,8 @@ const idleJob: JobProgress = { active: false, kind: null, current: 0, total: 0, 
 
 export default function App() {
   const { lang, toggleLanguage } = useLang()
-  const { isReady, modelState, detectLayout, recognizeLines } = useOCRWorker()
+  const { modelVersion, setModelVersion } = useModelVersion()
+  const { isReady, modelState, detectLayout, recognizeLines } = useOCRWorker(modelVersion)
   const store = usePageStore()
   const {
     pages, selectedId, selectedPage, selectedOrder, setSelectedOrder, selectedDataUrl,
@@ -201,7 +203,14 @@ export default function App() {
       </main>
 
       <Footer lang={lang} />
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} lang={lang} />}
+      {showSettings && (
+        <SettingsModal
+          onClose={() => setShowSettings(false)}
+          lang={lang}
+          modelVersion={modelVersion}
+          onChangeModelVersion={setModelVersion}
+        />
+      )}
     </div>
   )
 }

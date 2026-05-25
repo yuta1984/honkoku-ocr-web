@@ -1,12 +1,20 @@
 import { useState } from 'react'
 import { clearModelCache } from '../../ocr/model-loader'
+import type { OcrModelVersion } from '../../ocr/model-loader'
 
 interface SettingsModalProps {
   onClose: () => void
   lang: 'ja' | 'en'
+  modelVersion: OcrModelVersion
+  onChangeModelVersion: (next: OcrModelVersion) => void
 }
 
-export function SettingsModal({ onClose, lang }: SettingsModalProps) {
+const OCR_VERSIONS: { value: OcrModelVersion; label: string; descJa: string; descEn: string }[] = [
+  { value: 'v8', label: 'v8', descJa: 'ConvNeXt-Base。低解像度に強く精度も最良（推奨）', descEn: 'ConvNeXt-Base. Robust to low resolution, best accuracy (recommended)' },
+  { value: 'v7', label: 'v7', descJa: 'ConvNeXt-Small。軽量な従来モデル', descEn: 'ConvNeXt-Small. Lighter legacy model' },
+]
+
+export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersion }: SettingsModalProps) {
   const [clearing, setClearing] = useState(false)
   const [cleared, setCleared] = useState(false)
 
@@ -38,6 +46,32 @@ export function SettingsModal({ onClose, lang }: SettingsModalProps) {
         </div>
 
         <div className="panel-body">
+          <section className="settings-section">
+            <h3>{lang === 'ja' ? 'OCRモデル' : 'OCR Model'}</h3>
+            <p className="settings-description">
+              {lang === 'ja'
+                ? '行認識（enc-dec）モデルの版を切り替えます。切替後、選んだ版のモデルを読み込み直します（未ダウンロードの場合は初回のみダウンロード）。'
+                : 'Switch the line recognition (enc-dec) model version. The selected version is (re)loaded after switching (downloaded once if not cached).'}
+            </p>
+            <div className="settings-radio-group">
+              {OCR_VERSIONS.map((v) => (
+                <label key={v.value} className="settings-radio">
+                  <input
+                    type="radio"
+                    name="ocr-version"
+                    value={v.value}
+                    checked={modelVersion === v.value}
+                    onChange={() => onChangeModelVersion(v.value)}
+                  />
+                  <span className="settings-radio-label">
+                    <strong>{v.label}</strong>
+                    <span className="settings-radio-desc">{lang === 'ja' ? v.descJa : v.descEn}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </section>
+
           <section className="settings-section">
             <h3>{lang === 'ja' ? 'モデルキャッシュ' : 'Model Cache'}</h3>
             <p className="settings-description">

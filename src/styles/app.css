@@ -485,4 +485,12 @@
 .btn-close { background: none; border: none; font-size: 1.1rem; color: var(--muted); }
 .panel-body { padding: 18px; }
 .settings-section h3 { font-size: 0.95rem; margin-bottom: 6px; }
+.settings-section + .settings-section { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
 .settings-description { font-size: 0.82rem; color: var(--muted); margin: 0 0 12px; }
+.settings-radio-group { display: flex; flex-direction: column; gap: 8px; }
+.settings-radio { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.settings-radio:hover { background: var(--hover, rgba(0,0,0,0.03)); }
+.settings-radio input { margin-top: 3px; }
+.settings-radio-label { display: flex; flex-direction: column; gap: 2px; }
+.settings-radio-label strong { font-size: 0.9rem; }
+.settings-radio-desc { font-size: 0.8rem; color: var(--muted); }
