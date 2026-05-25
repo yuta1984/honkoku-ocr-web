@@ -8,7 +8,7 @@ const DB_VERSION = 2
 const STORE_NAME = 'models'
 
 // モデルのバージョン（URLが変わったらここを更新）
-export const MODEL_VERSION = '1.0.0-kuzushiji-v7'
+export const MODEL_VERSION = '1.0.0-kuzushiji-v8'
 
 // モデル配信ベースURL（環境変数 VITE_MODEL_BASE_URL で指定、末尾スラッシュなし）。
 // 指定時は R2 等のバケット直下から、未指定時はローカル public/models/ から配信する。
@@ -20,8 +20,8 @@ const modelUrl = (file: string) => (MODEL_BASE_URL ? `${MODEL_BASE_URL}/${file}`
 // ONNXモデルのURL（みんなで翻刻OCR: koten-layout YOLO + kuzushiji v7 enc-dec int8）
 export const MODEL_URLS: Record<string, string> = {
   layout: modelUrl('koten-layout-best.onnx'),             // 5クラス(全体/手書き/活字/図版/印判)。手書き/活字=行box
-  ocrEncoder: modelUrl('kuzushiji-v7-encoder-int8.onnx'), // ConvNeXt-small+2D位置埋め込み [1,3,128,1024]→[1,128,D]
-  ocrDecoder: modelUrl('kuzushiji-v7-decoder-int8.onnx'), // RoBERTa decoder (greedy, KVキャッシュ無し)
+  ocrEncoder: modelUrl('kuzushiji-v8-encoder-int8.onnx'), // ConvNeXt-Base+2D位置埋め込み [1,3,128,1024]→[1,128,D]
+  ocrDecoder: modelUrl('kuzushiji-v8-decoder-int8.onnx'), // RoBERTa decoder (greedy, KVキャッシュ無し)
 }
 
 function initDB(): Promise<IDBDatabase> {
