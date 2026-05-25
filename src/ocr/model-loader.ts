@@ -18,8 +18,10 @@ const MODEL_BASE_URL = (import.meta.env.VITE_MODEL_BASE_URL as string | undefine
 const modelUrl = (file: string) => (MODEL_BASE_URL ? `${MODEL_BASE_URL}/${file}` : `${import.meta.env.BASE_URL}models/${file}`)
 
 // OCR enc-dec モデルは v7/v8 を切替可能（layout YOLO は共通）。
+// 既定は v7。v8(ConvNeXt-Base)は Python 評価では上回ったが、int8/Web 経路で
+// 実運用上の精度悪化が見られたため既定から外している（設定で選択は可能）。
 export type OcrModelVersion = 'v7' | 'v8'
-export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v8'
+export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v7'
 const LAYOUT_FILE = 'koten-layout-best.onnx' // 5クラス YOLO(全体/手書き/活字/図版/印判)。手書き/活字=行box
 const OCR_MODEL_FILES: Record<OcrModelVersion, { encoder: string; decoder: string }> = {
   v7: { encoder: 'kuzushiji-v7-encoder-int8.onnx', decoder: 'kuzushiji-v7-decoder-int8.onnx' }, // ConvNeXt-Small

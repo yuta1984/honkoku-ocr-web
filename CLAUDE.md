@@ -24,8 +24,11 @@ Web Worker でローカル実行し、画像も結果も外部送信しない。
 | 用途 | モデル | 入出力 |
 |------|--------|--------|
 | レイアウト | `koten-layout-best.onnx`（YOLO 5クラス） | [1,3,640,640] レターボックス(pad114) → [1,9,8400]。クラス: 0全体/1手書き/2活字/3図版/4印判。**手書き・活字 box = 行** |
-| OCRエンコーダ | `kuzushiji-v8-encoder-int8.onnx`（ConvNeXt-Base+2D位置埋込） | pixel_values[1,3,128,1024] → encoder_hidden_states[1,128,D] |
-| OCRデコーダ | `kuzushiji-v8-decoder-int8.onnx`（RoBERTa, greedy, KVキャッシュ無し） | input_ids[1,T]+encoder_hidden_states → logits。CLS=2 から SEP=3 まで逐次生成 |
+| OCRエンコーダ | `kuzushiji-v7-encoder-int8.onnx`（ConvNeXt-Small+2D位置埋込）※既定 | pixel_values[1,3,128,1024] → encoder_hidden_states[1,128,D] |
+| OCRデコーダ | `kuzushiji-v7-decoder-int8.onnx`（RoBERTa, greedy, KVキャッシュ無し）※既定 | input_ids[1,T]+encoder_hidden_states → logits。CLS=2 から SEP=3 まで逐次生成 |
+
+OCR enc-dec は設定で **v7（既定）/ v8** を切替可能（`OcrModelVersion`、localStorage 永続）。
+v8(ConvNeXt-Base)は Python 評価では上回ったが int8/Web 経路で実運用上の悪化が見られ既定から外した。
 
 語彙は `public/config/kuzushiji-vocab.json`（5000トークン、index=token id）。
 `<ruby>/<rt>/<KAERI>/<OKURI>/<WARI>/<TATE>/<BLOCK>` 等の Koji 特殊トークンを含む。

@@ -10,8 +10,8 @@ interface SettingsModalProps {
 }
 
 const OCR_VERSIONS: { value: OcrModelVersion; label: string; descJa: string; descEn: string }[] = [
-  { value: 'v8', label: 'v8', descJa: 'ConvNeXt-Base。低解像度に強く精度も最良（推奨）', descEn: 'ConvNeXt-Base. Robust to low resolution, best accuracy (recommended)' },
-  { value: 'v7', label: 'v7', descJa: 'ConvNeXt-Small。軽量な従来モデル', descEn: 'ConvNeXt-Small. Lighter legacy model' },
+  { value: 'v7', label: 'v7', descJa: 'ConvNeXt-Small。安定した標準モデル（推奨）', descEn: 'ConvNeXt-Small. Stable standard model (recommended)' },
+  { value: 'v8', label: 'v8', descJa: 'ConvNeXt-Base（実験的）。一部入力で精度が落ちる場合があります', descEn: 'ConvNeXt-Base (experimental). May degrade on some inputs' },
 ]
 
 export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersion }: SettingsModalProps) {
