@@ -28,7 +28,7 @@ self.onmessage = async (e: MessageEvent<RecWorkerInMessage>) => {
         loadModel('ocrDecoder', undefined, msg.version),
       ])
       recognizer = new TextRecognizer()
-      await recognizer.initialize(encData, decData)
+      await recognizer.initialize(encData, decData, msg.version)
       post({ type: 'REC_READY' })
     } catch (err) {
       post({ type: 'REC_INIT_ERROR', error: (err as Error).message })

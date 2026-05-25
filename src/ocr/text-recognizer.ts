@@ -16,6 +16,8 @@
 
 import type * as OrtType from 'onnxruntime-web'
 import { ort, createSession } from './onnx-config'
+import type { OcrModelVersion } from './model-loader'
+import { DEFAULT_OCR_VERSION } from './model-loader'
 
 const IMG_H = 128
 const IMG_W = 1024
@@ -36,7 +38,11 @@ const SKEW_DOWNSCALE = 120   // 角度推定用のダウンスケール上限(px
 const MEAN = [0.485, 0.456, 0.406]
 const STD = [0.229, 0.224, 0.225]
 
-const VOCAB_URL = `${import.meta.env.BASE_URL}config/kuzushiji-vocab.json`
+// 語彙(id→token)は **モデルの版ごとに異なる**（v7 と v8 で token id の並びが ~86% 違う）。
+// 版に対応した vocab を読まないと全文字が別字に化けるので、版で URL を切り替える。
+// v7 = kuzushiji-vocab.json（既存）、v8 = kuzushiji-vocab-v8.json。
+const vocabUrl = (version: OcrModelVersion) =>
+  `${import.meta.env.BASE_URL}config/kuzushiji-vocab${version === 'v7' ? '' : `-${version}`}.json`
 
 export class TextRecognizer {
   private encoder: OrtType.InferenceSession | null = null
@@ -44,10 +50,14 @@ export class TextRecognizer {
   private vocab: string[] = []
   private initialized = false
 
-  async initialize(encoderData: ArrayBuffer, decoderData: ArrayBuffer): Promise<void> {
+  async initialize(
+    encoderData: ArrayBuffer,
+    decoderData: ArrayBuffer,
+    version: OcrModelVersion = DEFAULT_OCR_VERSION
+  ): Promise<void> {
     if (this.initialized) return
     if (this.vocab.length === 0) {
-      const res = await fetch(VOCAB_URL)
+      const res = await fetch(vocabUrl(version))
       if (!res.ok) throw new Error(`Failed to load vocab: ${res.statusText}`)
       this.vocab = await res.json()
     }
