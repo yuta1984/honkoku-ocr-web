@@ -11,12 +11,9 @@ export function Header({ lang, onToggleLanguage, onOpenSettings, onLogoClick }: 
   return (
     <header className="header">
       <button className="header-title" onClick={onLogoClick}>
-        <img className="header-logo" src={`${import.meta.env.BASE_URL}soramaru/01_normal.png`} alt="" />
-        <span className="header-titles">
-          <h1>みんなで翻刻OCR</h1>
-          <span className="header-subtitle">
-            {lang === 'ja' ? '市民の力で作ったくずし字AI-OCR' : 'Kuzushiji AI-OCR built by citizen scholars'}
-          </span>
+        <h1>みんなで翻刻OCR</h1>
+        <span className="header-subtitle">
+          {lang === 'ja' ? '市民の力で作ったくずし字AI-OCR' : 'Kuzushiji AI-OCR built by citizen scholars'}
         </span>
       </button>
       <div className="header-actions">

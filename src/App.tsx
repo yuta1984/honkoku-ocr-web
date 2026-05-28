@@ -192,6 +192,7 @@ export default function App() {
             ) : (
               <div className="viewer-placeholder">
                 <img className="placeholder-icon" src={`${import.meta.env.BASE_URL}soramaru/04_gaze.png`} alt="" />
+
                 <p>{lang === 'ja' ? '画像をここにドラッグ&ドロップ、または左の「画像を追加」から読み込んでください' : 'Drag & drop images here, or use “Add images” on the left'}</p>
                 <p className="placeholder-sub">{lang === 'ja' ? 'JPG / PNG / TIFF / HEIC / PDF・Ctrl+V で貼り付け可' : 'JPG / PNG / TIFF / HEIC / PDF · Ctrl+V to paste'}</p>
               </div>
