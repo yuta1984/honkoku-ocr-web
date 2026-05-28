@@ -30,15 +30,14 @@ export function Footer({ lang, githubUrl = 'https://github.com/yuta1984', onHide
       <div className="footer-attribution">
         {lang === 'ja' ? (
           <span className="footer-attribution-text">
-            くずし字行OCRモデル(ConvNeXt + RoBERTa, v7) と古典籍レイアウト検出モデルを ONNX に変換して使用しています。
+            低解像度画像では認識精度が大きく下がる場合があります。
             翻刻データは「{' '}
             <a href="https://honkoku.org" target="_blank" rel="noopener noreferrer">みんなで翻刻</a>
             {' '}」に基づきます。
           </span>
         ) : (
           <span className="footer-attribution-text">
-            Uses an ONNX-ported kuzushiji line-OCR model (ConvNeXt + RoBERTa, v7) and a classical-document layout detector,
-            trained on data from{' '}
+            Recognition accuracy may drop significantly on low-resolution images. Transcription data is based on{' '}
             <a href="https://honkoku.org" target="_blank" rel="noopener noreferrer">Minna de Honkoku</a>.
           </span>
         )}
