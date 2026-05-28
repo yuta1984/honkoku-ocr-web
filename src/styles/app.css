@@ -43,7 +43,7 @@
 /* ===== モデルステータスバー ===== */
 .statusbar {
   flex: 0 0 auto;
-  background: #f4f8fd;
+  background: #e3f2fd;
   border-bottom: 1px solid var(--line);
   padding: 8px 18px;
   font-size: 0.85rem;
@@ -133,9 +133,9 @@
   border-radius: 10px;
   border: 1px solid;
 }
-.status-badge.st-none { color: var(--muted); border-color: var(--line); background: #eeeeee; }
-.status-badge.st-layout { color: var(--type); border-color: #90caf9; background: #e3f2fd; }
-.status-badge.st-ocr { color: var(--ok); border-color: #a5d6a7; background: #e8f5e9; }
+.status-badge.st-none { color: var(--muted); border-color: var(--line); background: #f5f5f5; }
+.status-badge.st-layout { color: var(--type); border-color: #bcd6ea; background: #eef5fb; }
+.status-badge.st-ocr { color: var(--ok); border-color: #bfe0c6; background: #eef8f0; }
 
 .sidebar-batch { padding: 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
 .sidebar-batch-title { font-size: 0.75rem; color: var(--muted); margin-bottom: 2px; }
@@ -173,7 +173,7 @@
 .jobbar {
   flex: 0 0 auto;
   padding: 8px 14px;
-  background: #f4f8fd;
+  background: #e3f2fd;
   border-bottom: 1px solid var(--line);
   font-size: 0.82rem;
 }
@@ -187,7 +187,7 @@
   flex: 1 1 auto;
   position: relative;
   min-height: 0;
-  background: #2b2b2b;
+  background: #263238;
 }
 .osd-root { position: absolute; inset: 0; }
 /* z-index:0 で stacking context を作り、OSD 内部要素が編集レイヤー(z>0)より前に出ないようにする */
@@ -199,7 +199,7 @@
   position: absolute; inset: 0;
   cursor: move;
   border: 2px solid var(--accent-strong);
-  background: rgba(138, 90, 43, 0.10);
+  background: rgba(25, 118, 210, 0.10);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6);
 }
 .edit-h {
@@ -272,7 +272,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(138, 90, 43, 0.18);
+  background: rgba(25, 118, 210, 0.18);
   border: 3px dashed var(--accent);
   border-radius: 12px;
 }
@@ -289,7 +289,7 @@
 .viewer-placeholder {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  color: #e8eaed; text-align: center; padding: 24px; gap: 8px;
+  color: #e8e8e8; text-align: center; padding: 24px; gap: 8px;
 }
 .placeholder-icon { width: 150px; height: 150px; object-fit: contain; opacity: 0.95; }
 .placeholder-sub { font-size: 0.82rem; opacity: 0.7; }
@@ -298,21 +298,21 @@
 .osd-line {
   pointer-events: auto;
   border: 1.5px solid var(--hand);
-  background: rgba(217, 83, 79, 0.10);
+  background: rgba(211, 47, 47, 0.10);
   border-radius: 2px;
   cursor: pointer;
   transition: background 0.12s;
 }
 .osd-line.osd-line-type {
   border-color: var(--type);
-  background: rgba(47, 111, 159, 0.10);
+  background: rgba(0, 137, 123, 0.10);
 }
-.osd-line:hover { background: rgba(217, 83, 79, 0.22); }
-.osd-line.osd-line-type:hover { background: rgba(47, 111, 159, 0.22); }
+.osd-line:hover { background: rgba(211, 47, 47, 0.22); }
+.osd-line.osd-line-type:hover { background: rgba(0, 137, 123, 0.22); }
 .osd-line.selected {
-  background: rgba(138, 90, 43, 0.30) !important;
+  background: rgba(25, 118, 210, 0.30) !important;
   border-color: var(--accent-strong);
-  box-shadow: 0 0 0 2px rgba(138,90,43,0.4);
+  box-shadow: 0 0 0 2px rgba(25,118,210,0.4);
 }
 .osd-order {
   position: absolute;
@@ -335,7 +335,7 @@
 .osd-region {
   pointer-events: none;
   border: 1.5px dashed var(--region);
-  background: rgba(181, 139, 42, 0.06);
+  background: rgba(237, 108, 2, 0.06);
   border-radius: 2px;
 }
 .osd-region-label {
@@ -436,7 +436,7 @@
 .btn-secondary { background: #eeeeee; color: var(--ink); border-color: var(--line); }
 .btn-secondary:not(:disabled):hover { background: #e0e0e0; }
 .btn-outline { background: #fff; color: var(--accent-strong); border-color: var(--accent); }
-.btn-outline:not(:disabled):hover { background: #e8f1fb; }
+.btn-outline:not(:disabled):hover { background: #f5f5f5; }
 .btn-text { background: none; color: var(--muted); }
 .btn-text:not(:disabled):hover { color: var(--ink); text-decoration: underline; }
 .btn-mini {
@@ -532,8 +532,8 @@
 .btn-vb:not(:disabled):hover { background: #e3f2fd; }
 .btn-vb:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-vb-arrow { font-size: 1rem; padding: 2px 10px; line-height: 1.2; }
-.btn-vb-del { color: var(--hand); border-color: #ef9a9a; }
-.btn-vb-add { color: var(--ok); border-color: #a5d6a7; }
+.btn-vb-del { color: var(--hand); border-color: #e3b6b4; }
+.btn-vb-add { color: var(--ok); border-color: #bfe0c6; }
 
 /* ===== 設定モーダル ===== */
 .panel-overlay {
