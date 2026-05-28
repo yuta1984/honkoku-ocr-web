@@ -49,6 +49,10 @@ const STD = [0.229, 0.224, 0.225]
 const vocabUrl = (version: OcrModelVersion) =>
   `${import.meta.env.BASE_URL}config/kuzushiji-vocab${version === 'v7' ? '' : `-${version}`}.json`
 
+// ひらがな(U+3041–U+3096) → カタカナ(+0x60)。長音符・反復記号・漢字は範囲外なので不変。
+const hiraToKata = (s: string): string =>
+  s.replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60))
+
 export class TextRecognizer {
   private encoder: OrtType.InferenceSession | null = null
   private decoder: OrtType.InferenceSession | null = null
@@ -145,6 +149,13 @@ export class TextRecognizer {
     // 大半が読みの“両賭け”で重複）。除去するとふりがな精度が改善する（領域CER 0.148→0.117 で検証）。
     // gold での出現は極稀なので全版で一律除去する。末尾切れの孤立タグも掃除。
     out = out.replace(/<rt2>.*?<\/rt2>/g, '').replace(/<\/?rt2>/g, '')
+    // 漢文の送り仮名・返り点はカタカナが慣例。学習前処理が孤立カタカナをひらがなへ畳むため
+    // v11 はこれらをひらがなで出力する → 送り仮名(<OKURI>)・返点(<KAERI> と生＿）の仮名のみ
+    // カタカナへ戻す。本文や <rt> ふりがなは対象外なので一般のひらがな表記は壊さない。
+    out = out
+      .replace(/<OKURI>(.*?)<\/OKURI>/g, (_, b) => `<OKURI>${hiraToKata(b)}</OKURI>`)
+      .replace(/<KAERI>(.*?)<\/KAERI>/g, (_, b) => `<KAERI>${hiraToKata(b)}</KAERI>`)
+      .replace(/＿([ぁ-ゖ]+)/g, (_, b) => `＿${hiraToKata(b)}`)
     return out
   }
 
