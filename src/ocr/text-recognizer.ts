@@ -116,6 +116,10 @@ export class TextRecognizer {
       if (STRUCT.has(id)) continue
       out += this.vocab[id] ?? ''
     }
+    // <rt2>（第2読み）はモデルの過剰付与が支配的（test gold 34 件に対し v11 は ~1300 件、
+    // 大半が読みの“両賭け”で重複）。除去するとふりがな精度が改善する（領域CER 0.148→0.117 で検証）。
+    // gold での出現は極稀なので全版で一律除去する。末尾切れの孤立タグも掃除。
+    out = out.replace(/<rt2>.*?<\/rt2>/g, '').replace(/<\/?rt2>/g, '')
     return out
   }
 

@@ -10,7 +10,8 @@ interface SettingsModalProps {
 }
 
 const OCR_VERSIONS: { value: OcrModelVersion; label: string; descJa: string; descEn: string }[] = [
-  { value: 'v8', label: 'v8', descJa: 'ConvNeXt-Base。低解像度に強く精度も最良（推奨）', descEn: 'ConvNeXt-Base. Robust to low resolution, best accuracy (recommended)' },
+  { value: 'v11', label: 'v11', descJa: 'ConvNeXt-Base + 拡充データ。返点・送り仮名を改善し平文・ふりがなは維持（推奨）', descEn: 'ConvNeXt-Base + enriched data. Improves kaeriten/okurigana, keeps plain/furigana (recommended)' },
+  { value: 'v8', label: 'v8', descJa: 'ConvNeXt-Base。低解像度に強く高精度', descEn: 'ConvNeXt-Base. Robust to low resolution, high accuracy' },
   { value: 'v7', label: 'v7', descJa: 'ConvNeXt-Small。軽量な従来モデル', descEn: 'ConvNeXt-Small. Lighter legacy model' },
 ]
 

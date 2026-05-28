@@ -6,7 +6,7 @@ const STORAGE_KEY = 'honkoku_model_version'
 
 function getStored(): OcrModelVersion {
   const v = localStorage.getItem(STORAGE_KEY)
-  return v === 'v7' || v === 'v8' ? v : DEFAULT_OCR_VERSION
+  return v === 'v7' || v === 'v8' || v === 'v11' ? v : DEFAULT_OCR_VERSION
 }
 
 /**

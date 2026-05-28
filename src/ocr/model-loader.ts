@@ -17,16 +17,18 @@ const MODEL_BASE_URL = (import.meta.env.VITE_MODEL_BASE_URL as string | undefine
 // import.meta.env.BASE_URL を前置。worker から fetch しても絶対パスで正しく解決される）。
 const modelUrl = (file: string) => (MODEL_BASE_URL ? `${MODEL_BASE_URL}/${file}` : `${import.meta.env.BASE_URL}models/${file}`)
 
-// OCR enc-dec モデルは v7/v8 を切替可能（layout YOLO は共通）。
-// 既定は v8(ConvNeXt-Base、低解像度に強く高精度)。v7(ConvNeXt-Small)は設定で選択可。
-// ※ v7 と v8 は token id→文字 の並びが ~86% 異なるため、版ごとに対応する vocab を
-//   読む必要がある（text-recognizer.ts の vocabUrl 参照）。混用すると全文字が化ける。
-export type OcrModelVersion = 'v7' | 'v8'
-export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v8'
+// OCR enc-dec モデルは v7/v8/v11 を切替可能（layout YOLO は共通）。
+// 既定は v11(v8レシピ + クリーンenrich。返点・送り仮名を改善し平文・ふりがなは維持。<rt2>過剰付与は
+// text-recognizer の decode 後処理で除去)。v8(ConvNeXt-Base)/v7(ConvNeXt-Small)は設定で選択可。
+// ※ 版ごとに token id→文字 の並びが大きく異なるため、版に対応する vocab を読む必要がある
+//   （text-recognizer.ts の vocabUrl 参照）。混用すると全文字が化ける。
+export type OcrModelVersion = 'v7' | 'v8' | 'v11'
+export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v11'
 const LAYOUT_FILE = 'koten-layout-best.onnx' // 5クラス YOLO(全体/手書き/活字/図版/印判)。手書き/活字=行box
 const OCR_MODEL_FILES: Record<OcrModelVersion, { encoder: string; decoder: string }> = {
   v7: { encoder: 'kuzushiji-v7-encoder-int8.onnx', decoder: 'kuzushiji-v7-decoder-int8.onnx' }, // ConvNeXt-Small
   v8: { encoder: 'kuzushiji-v8-encoder-int8.onnx', decoder: 'kuzushiji-v8-decoder-int8.onnx' }, // ConvNeXt-Base(解像度ロバスト)
+  v11: { encoder: 'kuzushiji-v11-encoder-int8.onnx', decoder: 'kuzushiji-v11-decoder-int8.onnx' }, // ConvNeXt-Base + クリーンenrich
 }
 
 // modelType + version → 配信URL と キャッシュキー。OCR は version 別キーで両方キャッシュ可（切替が高速）。
