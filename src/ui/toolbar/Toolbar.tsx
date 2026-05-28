@@ -29,13 +29,6 @@ export function Toolbar(p: ToolbarProps) {
         >
           {lang === 'ja' ? 'OCR実行' : 'OCR'}
         </button>
-        {selectedPage && selectedPage.status !== 'unprocessed' && (
-          <span className="edit-hint">
-            {lang === 'ja'
-              ? '行クリックで選択 → ドラッグ移動 / 四隅でリサイズ / × 削除 / ←→ 読み順入替'
-              : 'Click a line → drag move / corners resize / × delete / ←→ reorder'}
-          </span>
-        )}
       </div>
       <div className="toolbar-right">
         {selectedPage && (

@@ -36,6 +36,7 @@ export function useOCRWorker(modelVersion: OcrModelVersion) {
   useEffect(() => {
     // version 変更時はワーカーを作り直す（cleanup で旧ワーカーを終了 → 再初期化）。
     // 前版の ready 状態が残らないようリセットしてから起動する。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsReady(false)
     setModelState(initialModelState)
 

@@ -290,9 +290,12 @@
 }
 .osd-order {
   position: absolute;
-  top: -9px; right: -9px;
+  /* bbox の少し上・中央（選択時の編集ボックスと重ならないように） */
+  bottom: 100%;
+  left: 50%;
+  transform: translate(-50%, -4px);
   min-width: 18px; height: 18px;
-  padding: 0 4px;
+  padding: 0 5px;
   background: var(--accent);
   color: #fff;
   font-size: 11px;
@@ -300,6 +303,7 @@
   text-align: center;
   border-radius: 9px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   box-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
 .osd-region {
@@ -463,7 +467,47 @@
   align-items: center;
 }
 .footer-privacy { display: flex; align-items: center; gap: 6px; }
-.footer-meta { margin-left: auto; display: flex; gap: 14px; }
+.footer-meta { margin-left: auto; display: flex; gap: 14px; align-items: center; }
+.footer-close {
+  background: none; border: 1px solid var(--line); color: var(--muted);
+  width: 22px; height: 22px; border-radius: 6px; font-size: 0.9rem; line-height: 1;
+}
+.footer-close:hover { background: #e6ddca; color: var(--ink); }
+.footer-restore {
+  flex: 0 0 auto;
+  align-self: stretch;
+  background: #efe9dc; border: none; border-top: 1px solid var(--line);
+  color: var(--muted); font-size: 0.72rem; padding: 3px 0; cursor: pointer;
+}
+.footer-restore:hover { background: #e6ddca; color: var(--ink); }
+
+/* ===== ビューア下部メニュー（行編集） ===== */
+.viewer-bottom {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.vb-label { font-size: 0.78rem; color: var(--muted); }
+.vb-sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+.vb-hint { margin-left: auto; font-size: 0.72rem; color: var(--muted); }
+.btn-vb {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  color: var(--ink);
+}
+.btn-vb:not(:disabled):hover { background: #f0e6d6; }
+.btn-vb:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-vb-arrow { font-size: 1rem; padding: 2px 10px; line-height: 1.2; }
+.btn-vb-del { color: var(--hand); border-color: #e3b6b4; }
+.btn-vb-add { color: var(--ok); border-color: #bfe0c6; }
 
 /* ===== 設定モーダル ===== */
 .panel-overlay {

@@ -1,9 +1,10 @@
 interface FooterProps {
   lang: 'ja' | 'en'
   githubUrl?: string
+  onHide?: () => void
 }
 
-export function Footer({ lang, githubUrl = 'https://github.com/yuta1984' }: FooterProps) {
+export function Footer({ lang, githubUrl = 'https://github.com/yuta1984', onHide }: FooterProps) {
   return (
     <footer className="footer">
       <div className="footer-privacy">
@@ -61,6 +62,9 @@ export function Footer({ lang, githubUrl = 'https://github.com/yuta1984' }: Foot
         <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="footer-github">
           {lang === 'ja' ? 'GitHub' : 'GitHub'} ↗
         </a>
+        {onHide && (
+          <button className="footer-close" onClick={onHide} title={lang === 'ja' ? '閉じる' : 'Hide'} aria-label="hide footer">×</button>
+        )}
       </div>
     </footer>
   )

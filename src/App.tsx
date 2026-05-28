@@ -10,6 +10,7 @@ import { StatusBar } from './ui/StatusBar'
 import { JobBar } from './ui/JobBar'
 import { PageSidebar } from './ui/sidebar/PageSidebar'
 import { Toolbar } from './ui/toolbar/Toolbar'
+import { ViewerBottomBar } from './ui/viewer/ViewerBottomBar'
 import { ImageViewer } from './ui/viewer/ImageViewer'
 import { ResultPanel } from './ui/results/ResultPanel'
 import { SettingsModal } from './ui/settings/SettingsModal'
@@ -28,12 +29,14 @@ export default function App() {
     pages, selectedId, selectedPage, selectedOrder, setSelectedOrder, selectedDataUrl,
     isLoadingFiles, fileLoadingState, pagesRef, getBlob,
     addImages, handlePaste, selectPage, clearAll, updatePage, updateLine, deleteLine,
+    swapOrder, addLine,
   } = store
 
   const [job, setJob] = useState<JobProgress>(idleJob)
   const [showSettings, setShowSettings] = useState(false)
   const [rightWidth, setRightWidth] = useState(480)   // 翻刻パネル幅(px、ドラッグで変更)
   const [rightVisible, setRightVisible] = useState(true)
+  const [footerVisible, setFooterVisible] = useState(true)
 
   const handleClearAll = useCallback(() => { clearAll(); setJob(idleJob) }, [clearAll])
 
@@ -192,6 +195,17 @@ export default function App() {
               </div>
             )}
           </div>
+
+          {selectedPage && selectedPage.status !== 'unprocessed' && (
+            <ViewerBottomBar
+              hasSelection={selectedOrder != null}
+              lang={lang}
+              onReorderLater={() => swapOrder('later')}
+              onReorderEarlier={() => swapOrder('earlier')}
+              onDelete={() => { if (selectedOrder != null) deleteLine(selectedOrder) }}
+              onAddLine={addLine}
+            />
+          )}
         </section>
 
         {rightVisible && <div className="splitter" onPointerDown={startSplitDrag} title={lang === 'ja' ? 'ドラッグで幅を調整' : 'Drag to resize'} />}
@@ -202,7 +216,13 @@ export default function App() {
         )}
       </main>
 
-      <Footer lang={lang} />
+      {footerVisible ? (
+        <Footer lang={lang} onHide={() => setFooterVisible(false)} />
+      ) : (
+        <button className="footer-restore" onClick={() => setFooterVisible(true)}>
+          {lang === 'ja' ? 'ⓘ クレジット・プライバシー情報を表示' : 'ⓘ Show credits / privacy'}
+        </button>
+      )}
       {showSettings && (
         <SettingsModal
           onClose={() => setShowSettings(false)}
