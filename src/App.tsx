@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import type { JobProgress } from './types/ocr'
 import { useLang } from './hooks/useLang'
+import { useFileDrop } from './hooks/useFileDrop'
 import { useModelVersion } from './hooks/useModelVersion'
 import { useOCRWorker } from './hooks/useOCRWorker'
 import { usePageStore } from './hooks/usePageStore'
@@ -37,6 +38,7 @@ export default function App() {
   const [rightWidth, setRightWidth] = useState(480)   // 翻刻パネル幅(px、ドラッグで変更)
   const [rightVisible, setRightVisible] = useState(true)
   const [footerVisible, setFooterVisible] = useState(true)
+  const { dragOver, dropProps } = useFileDrop(addImages)
 
   const handleClearAll = useCallback(() => { clearAll(); setJob(idleJob) }, [clearAll])
 
@@ -174,7 +176,7 @@ export default function App() {
           />
           <JobBar job={job} isLoadingFiles={isLoadingFiles} fileLoadingState={fileLoadingState} lang={lang} />
 
-          <div className="viewer-wrap">
+          <div className={`viewer-wrap ${dragOver ? 'drag-over' : ''}`} {...dropProps}>
             {selectedPage ? (
               <ImageViewer
                 key={selectedPage.id}
@@ -190,8 +192,13 @@ export default function App() {
             ) : (
               <div className="viewer-placeholder">
                 <div className="placeholder-icon">📜</div>
-                <p>{lang === 'ja' ? '左の「画像を追加」から翻刻したい画像を読み込んでください' : 'Add images from the left panel to begin'}</p>
+                <p>{lang === 'ja' ? '画像をここにドラッグ&ドロップ、または左の「画像を追加」から読み込んでください' : 'Drag & drop images here, or use “Add images” on the left'}</p>
                 <p className="placeholder-sub">{lang === 'ja' ? 'JPG / PNG / TIFF / HEIC / PDF・Ctrl+V で貼り付け可' : 'JPG / PNG / TIFF / HEIC / PDF · Ctrl+V to paste'}</p>
+              </div>
+            )}
+            {dragOver && (
+              <div className="drop-overlay">
+                <div className="drop-overlay-inner">{lang === 'ja' ? '⬇ ドロップして画像を追加' : '⬇ Drop to add images'}</div>
               </div>
             )}
           </div>
