@@ -18,13 +18,14 @@
 }
 .header-title {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
   background: none;
   border: none;
   color: inherit;
   padding: 0;
 }
+.header-logo { height: 36px; width: auto; flex: 0 0 auto; }
 .header-title h1 { font-size: 1.3rem; letter-spacing: 0.04em; }
 .header-subtitle { font-size: 0.8rem; opacity: 0.85; }
 .header-actions { display: flex; align-items: center; gap: 8px; }
@@ -176,8 +177,10 @@
   border-bottom: 1px solid var(--line);
   font-size: 0.82rem;
 }
-.jobbar-row { display: flex; gap: 12px; justify-content: space-between; }
-.jobbar-stage { font-weight: 600; color: var(--accent-strong); }
+.jobbar-row { display: flex; gap: 12px; justify-content: space-between; align-items: center; }
+.jobbar-left { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.jobbar-icon { height: 24px; width: auto; flex: 0 0 auto; }
+.jobbar-stage { font-weight: 600; color: var(--accent-strong); flex: 0 0 auto; }
 .jobbar-msg { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .viewer-wrap {

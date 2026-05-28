@@ -16,9 +16,14 @@ export function JobBar({ job, isLoadingFiles, fileLoadingState, lang }: JobBarPr
     return (
       <div className="jobbar">
         <div className="jobbar-row">
-          <span className="jobbar-stage">
-            {job.kind === 'layout' ? (lang === 'ja' ? 'レイアウト認識' : 'Layout') : 'OCR'}
-            {job.total > 1 && `（${job.current}/${job.total}）`}
+          <span className="jobbar-left">
+            {job.kind === 'ocr' && (
+              <img className="jobbar-icon" src={`${import.meta.env.BASE_URL}soramaru/11_analyse.png`} alt="" />
+            )}
+            <span className="jobbar-stage">
+              {job.kind === 'layout' ? (lang === 'ja' ? 'レイアウト認識' : 'Layout') : 'OCR'}
+              {job.total > 1 && `（${job.current}/${job.total}）`}
+            </span>
           </span>
           <span className="jobbar-msg">{job.message}</span>
         </div>
