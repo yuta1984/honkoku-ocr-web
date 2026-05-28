@@ -24,7 +24,12 @@ const IMG_W = 1024
 const CLS = 2
 const SEP = 3
 const STRUCT = new Set([0, 1, 2, 3, 4]) // <PAD> <UNK> <CLS> <SEP> <MASK>
-const MAX_LEN = 80
+// 生成トークン上限。学習ターゲットは 256 トークン、評価(dump)は 192 生成。80 だと
+// 長い行＋ふりがな(1語で <ruby>X<rt>yomi</rt></ruby>≈9トークン消費)で末尾が切れるため 192 に合わせる。
+const MAX_LEN = 192
+// 行末の崩壊(同一/短周期トークンの連鎖)を打ち切るガード。直近 REPEAT_WINDOW トークンが
+// 周期 ≤4 で反復していたら停止。12連続は通常文では起こらず、崩壊のみを捕捉する。
+const REPEAT_WINDOW = 12
 const LEFT_CROP_PX = 45
 const MIN_W_FOR_CROP = 120
 
@@ -104,9 +109,29 @@ export class TextRecognizer {
       if (best === SEP) break
       seq.push(best)
       generated.push(best)
+      // 崩壊ガード: 末尾が短周期で反復し始めたら、反復の1周期だけ残して打ち切る
+      const p = TextRecognizer.degeneratePeriod(generated)
+      if (p > 0) { generated.length -= REPEAT_WINDOW - p; break }
     }
 
     return this.decode(generated)
+  }
+
+  /**
+   * 直近 REPEAT_WINDOW トークンが周期 p(1..4) で反復していれば p を返す（崩壊判定）。
+   * 反復していなければ 0。通常文では 12 トークンの短周期反復は起きないため誤検出しにくい。
+   */
+  private static degeneratePeriod(seq: number[]): number {
+    if (seq.length < REPEAT_WINDOW) return 0
+    const start = seq.length - REPEAT_WINDOW
+    for (let p = 1; p <= 4; p++) {
+      let periodic = true
+      for (let i = start; i < seq.length - p; i++) {
+        if (seq[i] !== seq[i + p]) { periodic = false; break }
+      }
+      if (periodic) return p
+    }
+    return 0
   }
 
   /** トークンID列 -> 生文字列（特殊構造トークン以外は語彙文字列をそのまま連結） */
