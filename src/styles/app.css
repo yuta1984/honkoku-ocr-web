@@ -43,7 +43,7 @@
 /* ===== モデルステータスバー ===== */
 .statusbar {
   flex: 0 0 auto;
-  background: #fffaf0;
+  background: #f4f8fd;
   border-bottom: 1px solid var(--line);
   padding: 8px 18px;
   font-size: 0.85rem;
@@ -58,7 +58,7 @@
 .bar-track {
   margin-top: 6px;
   height: 6px;
-  background: #e7e0d2;
+  background: #e0e0e0;
   border-radius: 4px;
   overflow: hidden;
 }
@@ -104,8 +104,8 @@
   padding: 6px;
   margin-bottom: 4px;
 }
-.sidebar-item:hover { background: #f6f1e7; }
-.sidebar-item.active { background: #f0e6d6; border-color: var(--accent); }
+.sidebar-item:hover { background: #f5f5f5; }
+.sidebar-item.active { background: #e3f2fd; border-color: var(--accent); }
 .sidebar-index {
   flex: 0 0 22px;
   text-align: center;
@@ -133,9 +133,9 @@
   border-radius: 10px;
   border: 1px solid;
 }
-.status-badge.st-none { color: var(--muted); border-color: var(--line); background: #f4f1ea; }
-.status-badge.st-layout { color: var(--type); border-color: #bcd6ea; background: #eef5fb; }
-.status-badge.st-ocr { color: var(--ok); border-color: #bfe0c6; background: #eef8f0; }
+.status-badge.st-none { color: var(--muted); border-color: var(--line); background: #eeeeee; }
+.status-badge.st-layout { color: var(--type); border-color: #90caf9; background: #e3f2fd; }
+.status-badge.st-ocr { color: var(--ok); border-color: #a5d6a7; background: #e8f5e9; }
 
 .sidebar-batch { padding: 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
 .sidebar-batch-title { font-size: 0.75rem; color: var(--muted); margin-bottom: 2px; }
@@ -173,7 +173,7 @@
 .jobbar {
   flex: 0 0 auto;
   padding: 8px 14px;
-  background: #fffaf0;
+  background: #f4f8fd;
   border-bottom: 1px solid var(--line);
   font-size: 0.82rem;
 }
@@ -187,7 +187,7 @@
   flex: 1 1 auto;
   position: relative;
   min-height: 0;
-  background: #2c2a26;
+  background: #2b2b2b;
 }
 .osd-root { position: absolute; inset: 0; }
 /* z-index:0 で stacking context を作り、OSD 内部要素が編集レイヤー(z>0)より前に出ないようにする */
@@ -289,7 +289,7 @@
 .viewer-placeholder {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  color: #e8e2d4; text-align: center; padding: 24px; gap: 8px;
+  color: #e8eaed; text-align: center; padding: 24px; gap: 8px;
 }
 .placeholder-icon { width: 150px; height: 150px; object-fit: contain; opacity: 0.95; }
 .placeholder-sub { font-size: 0.82rem; opacity: 0.7; }
@@ -404,8 +404,8 @@
   line-height: 1.65;
   border: 1px solid transparent;
 }
-.vline:hover { background: #f6f1e7; }
-.vline.selected { background: #f0e6d6; border-color: var(--accent); }
+.vline:hover { background: #f5f5f5; }
+.vline.selected { background: #e3f2fd; border-color: var(--accent); }
 .vline-no {
   position: absolute;
   top: 4px; left: 50%;
@@ -413,7 +413,7 @@
   writing-mode: horizontal-tb;
   font-size: 0.65rem;
   color: var(--muted);
-  background: #efe9dc;
+  background: #eeeeee;
   border-radius: 8px;
   padding: 0 5px;
   font-variant-numeric: tabular-nums;
@@ -433,14 +433,14 @@
 .btn-sm { padding: 4px 10px; font-size: 0.78rem; }
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-primary:not(:disabled):hover { background: var(--accent-strong); }
-.btn-secondary { background: #efe9dc; color: var(--ink); border-color: var(--line); }
-.btn-secondary:not(:disabled):hover { background: #e6ddca; }
+.btn-secondary { background: #eeeeee; color: var(--ink); border-color: var(--line); }
+.btn-secondary:not(:disabled):hover { background: #e0e0e0; }
 .btn-outline { background: #fff; color: var(--accent-strong); border-color: var(--accent); }
-.btn-outline:not(:disabled):hover { background: #f6efe3; }
+.btn-outline:not(:disabled):hover { background: #e8f1fb; }
 .btn-text { background: none; color: var(--muted); }
 .btn-text:not(:disabled):hover { color: var(--ink); text-decoration: underline; }
 .btn-mini {
-  background: #efe9dc; border: 1px solid var(--line);
+  background: #eeeeee; border: 1px solid var(--line);
   border-radius: 6px; padding: 3px 10px; font-size: 0.76rem;
 }
 
@@ -477,12 +477,12 @@
   font-size: 0.82rem;
   color: var(--ink);
 }
-.dlmenu-list button:hover { background: #f0e6d6; }
+.dlmenu-list button:hover { background: #e3f2fd; }
 
 /* ===== フッター ===== */
 .footer {
   flex: 0 0 auto;
-  background: #efe9dc;
+  background: #eeeeee;
   border-top: 1px solid var(--line);
   padding: 6px 18px;
   font-size: 0.72rem;
@@ -498,14 +498,14 @@
   background: none; border: 1px solid var(--line); color: var(--muted);
   width: 22px; height: 22px; border-radius: 6px; font-size: 0.9rem; line-height: 1;
 }
-.footer-close:hover { background: #e6ddca; color: var(--ink); }
+.footer-close:hover { background: #e0e0e0; color: var(--ink); }
 .footer-restore {
   flex: 0 0 auto;
   align-self: stretch;
-  background: #efe9dc; border: none; border-top: 1px solid var(--line);
+  background: #eeeeee; border: none; border-top: 1px solid var(--line);
   color: var(--muted); font-size: 0.72rem; padding: 3px 0; cursor: pointer;
 }
-.footer-restore:hover { background: #e6ddca; color: var(--ink); }
+.footer-restore:hover { background: #e0e0e0; color: var(--ink); }
 
 /* ===== ビューア下部メニュー（行編集） ===== */
 .viewer-bottom {
@@ -529,11 +529,11 @@
   font-size: 0.8rem;
   color: var(--ink);
 }
-.btn-vb:not(:disabled):hover { background: #f0e6d6; }
+.btn-vb:not(:disabled):hover { background: #e3f2fd; }
 .btn-vb:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-vb-arrow { font-size: 1rem; padding: 2px 10px; line-height: 1.2; }
-.btn-vb-del { color: var(--hand); border-color: #e3b6b4; }
-.btn-vb-add { color: var(--ok); border-color: #bfe0c6; }
+.btn-vb-del { color: var(--hand); border-color: #ef9a9a; }
+.btn-vb-add { color: var(--ok); border-color: #a5d6a7; }
 
 /* ===== 設定モーダル ===== */
 .panel-overlay {

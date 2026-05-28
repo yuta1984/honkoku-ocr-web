@@ -3,17 +3,17 @@
 }
 
 :root {
-  --bg: #f4f1ea;
+  --bg: #f5f5f5;
   --panel: #ffffff;
-  --ink: #2b2b2b;
-  --muted: #6b6b6b;
-  --line: #ddd6c9;
-  --accent: #8a5a2b;       /* 墨茶 */
-  --accent-strong: #6d4420;
-  --hand: #d9534f;         /* 手書き行 */
-  --type: #2f6f9f;         /* 活字行 */
-  --region: #b58b2a;       /* 図版/印判 */
-  --ok: #3a8d4f;
+  --ink: #212121;
+  --muted: #5f6368;
+  --line: #e0e0e0;
+  --accent: #1976d2;        /* MUI primary.main（青） */
+  --accent-strong: #1565c0; /* MUI primary.dark */
+  --hand: #d32f2f;          /* 手書き行 */
+  --type: #0288d1;          /* 活字行 */
+  --region: #ed6c02;        /* 図版/印判 */
+  --ok: #2e7d32;
   font-family: "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
   color: var(--ink);
 }
