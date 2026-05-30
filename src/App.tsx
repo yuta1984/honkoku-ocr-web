@@ -6,8 +6,6 @@ import { useModelVersion } from './hooks/useModelVersion'
 import { useOCRWorker } from './hooks/useOCRWorker'
 import { usePageStore } from './hooks/usePageStore'
 import { Header } from './ui/layout/Header'
-import { AboutDialog } from './ui/about/AboutDialog'
-import { TechInfoDialog } from './ui/about/TechInfoDialog'
 import { StatusBar } from './ui/StatusBar'
 import { JobBar } from './ui/JobBar'
 import { PageSidebar } from './ui/sidebar/PageSidebar'
@@ -36,8 +34,6 @@ export default function App() {
 
   const [job, setJob] = useState<JobProgress>(idleJob)
   const [showSettings, setShowSettings] = useState(false)
-  const [showAbout, setShowAbout] = useState(false)
-  const [showTechInfo, setShowTechInfo] = useState(false)
   const [rightWidth, setRightWidth] = useState(480)   // 翻刻パネル幅(px、ドラッグで変更)
   const [rightVisible, setRightVisible] = useState(true)
   const { dragOver, dropProps } = useFileDrop(addImages)
@@ -145,8 +141,6 @@ export default function App() {
         lang={lang}
         onToggleLanguage={toggleLanguage}
         onOpenSettings={() => setShowSettings(true)}
-        onOpenAbout={() => setShowAbout(true)}
-        onOpenTechInfo={() => setShowTechInfo(true)}
         onLogoClick={handleClearAll}
       />
       <StatusBar modelState={modelState} lang={lang} />
@@ -240,8 +234,6 @@ export default function App() {
         )}
       </main>
 
-      {showAbout && <AboutDialog lang={lang} onClose={() => setShowAbout(false)} />}
-      {showTechInfo && <TechInfoDialog lang={lang} onClose={() => setShowTechInfo(false)} />}
       {showSettings && (
         <SettingsModal
           onClose={() => setShowSettings(false)}

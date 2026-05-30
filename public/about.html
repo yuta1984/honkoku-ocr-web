@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>みんなで翻刻OCRについて | Minna de Honkoku OCR</title>
+<meta name="description" content="「みんなで翻刻OCR」は、くずし字で書かれた歴史資料を対象としたAI-OCRシステム。市民参加型翻刻プラットフォーム「みんなで翻刻」の5,700万字・120万行のデータで学習。ふりがな・返り点・送り仮名・割書などの注釈構造も認識します。" />
+<meta property="og:title" content="みんなで翻刻OCRについて" />
+<meta property="og:description" content="くずし字で書かれた歴史資料を対象としたAI-OCRシステム。市民参加型翻刻プラットフォームのデータで学習。" />
+<meta property="og:type" content="article" />
+<meta property="og:image" content="./soramaru/07_happy.png" />
+<link rel="alternate" hreflang="ja" href="./about.html#ja" />
+<link rel="alternate" hreflang="en" href="./about.html#en" />
+<style>
+  :root {
+    --ink: rgba(0,0,0,0.87);
+    --muted: rgba(0,0,0,0.6);
+    --line: #e0e0e0;
+    --accent: #1976d2;
+    --accent-strong: #1565c0;
+    --bg: #f5f5f5;
+  }
+  *,*::before,*::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font-family: "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 20px 80px; }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--accent); color: #fff;
+  }
+  .topbar a { color: #fff; text-decoration: none; }
+  .topbar a:hover { text-decoration: underline; }
+  .topbar-nav a { margin-left: 14px; font-size: 0.9rem; }
+  .lang-toggle { font-size: 0.85rem; }
+  .lang-toggle a { padding: 2px 8px; border: 1px solid rgba(255,255,255,0.5); border-radius: 4px; }
+  .hero { display: flex; justify-content: center; padding: 16px 0 24px; }
+  .hero img { height: 160px; width: auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 12px; }
+  h2 { font-size: 1.15rem; color: var(--accent-strong); margin: 28px 0 10px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+  p { margin: 0 0 12px; }
+  a { color: var(--accent); }
+  a:hover { color: var(--accent-strong); }
+  ol { padding-left: 1.4em; }
+  ol li + li { margin-top: 6px; }
+  code {
+    background: #f0f0f0; border: 1px solid var(--line);
+    padding: 0 6px; border-radius: 4px;
+    font-size: 0.9em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .meta { font-size: 0.85rem; color: var(--muted); margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .lang-sep { border: 0; border-top: 2px solid var(--line); margin: 60px 0 0; }
+  @media (max-width: 600px) {
+    .hero img { height: 120px; }
+    main { padding: 20px 16px 60px; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a href="./" aria-label="ホームへ戻る"><strong>みんなで翻刻OCR</strong></a>
+  <nav class="topbar-nav">
+    <a href="./tech.html">技術情報</a>
+    <a href="https://honkoku.org/" target="_blank" rel="noopener">みんなで翻刻 ↗</a>
+    <span class="lang-toggle"><a href="#en">English</a></span>
+  </nav>
+</header>
+
+<main>
+
+<article id="ja" lang="ja">
+<div class="hero"><img src="./soramaru/07_happy.png" alt="" /></div>
+<h1>みんなで翻刻OCRについて</h1>
+
+<h2>概要</h2>
+<p>「みんなで翻刻OCR」は、くずし字で書かれた歴史資料を対象としたAI-OCRシステムです。歴史資料の市民参加型翻刻プラットフォーム「<a href="https://app.honkoku.org/" target="_blank" rel="noopener">みんなで翻刻</a>」で入力された<strong>5,700万字の翻刻文（<a href="https://github.com/yuta1984/honkoku-data" target="_blank" rel="noopener">honkoku-data</a>）と、みんなで翻刻上の資料画像から切り出された120万行の行画像</strong>を用いてくずし字の読み方を学習しています。</p>
+<p>くずし字認識AIには既に <a href="https://codh.rois.ac.jp/miwo/" target="_blank" rel="noopener">miwo</a>・<a href="https://camera.fuminoha.jp/" target="_blank" rel="noopener">古文書カメラ</a>・<a href="https://lab.ndl.go.jp/data_set/lite-usage/" target="_blank" rel="noopener">NDL古典籍OCR</a> など数々の優れたシステムが公開されています。その中でみんなで翻刻OCRの特徴は、<strong>ふりがなや漢文の訓点などの注釈情報を識別できること</strong>です。みんなで翻刻ではふりがなや漢文の訓点を表記するために「<a href="https://koji-lang.org/" target="_blank" rel="noopener">Koji</a>」という簡易マークアップ言語が用いられており、みんなで翻刻OCRもこの形式でふりがなや訓点を出力します。</p>
+
+<h2>使い方</h2>
+<ol>
+  <li>「画像を追加」ボタンなどからテキスト化したい画像を登録してください（複数登録可能）。</li>
+  <li>「レイアウト認識」を実行し、行の位置や読み順を確定してください。手動で調整することもできます。</li>
+  <li>「OCR実行」ボタンを押し、処理が完了するまでお待ちください。結果は右側の翻刻パネルに表示されます。</li>
+</ol>
+
+<h2>注意</h2>
+<p>低解像度画像では認識精度が大きく下がる場合があります。できるだけ高解像度の画像をご使用ください。</p>
+
+<h2>お問い合わせ</h2>
+<p>みんなで翻刻サポート窓口: <code>support[at]honkoku.org</code></p>
+
+<h2>免責事項</h2>
+<p>本アプリが出力するOCR結果はAIによる推定であり、誤りを含む可能性があります。研究・出版など重要な用途で利用される際は、必ず人手による校正を行ってください。本アプリの利用により生じたいかなる損害についても、開発者および関係機関は一切の責任を負いません。</p>
+<p>本アプリは<a href="https://www.npmjs.com/package/onnxruntime-web" target="_blank" rel="noopener">ONNX Web Runtime</a>を用いてWebブラウザ内で完結して動作します。選択した画像とOCR結果は外部に送信されません。</p>
+
+<p class="meta">開発: <a href="https://x.com/yuta1984" target="_blank" rel="noopener">橋本雄太</a>（国立歴史民俗博物館、国立国会図書館 非常勤調査員）　/　<a href="https://github.com/yuta1984/honkoku-ocr-web" target="_blank" rel="noopener">GitHub ↗</a></p>
+</article>
+
+<hr class="lang-sep" />
+
+<article id="en" lang="en">
+<h1>About Minna de Honkoku OCR</h1>
+
+<h2>Overview</h2>
+<p>Minna de Honkoku OCR is an AI-OCR system for historical documents written in <em>kuzushiji</em> (cursive Japanese). It is trained on the citizen-driven transcription platform <a href="https://app.honkoku.org/" target="_blank" rel="noopener">Minna de Honkoku</a>: <strong>57 million characters of transcribed text (<a href="https://github.com/yuta1984/honkoku-data" target="_blank" rel="noopener">honkoku-data</a>) and 1.2 million line-level images cropped from its corpus</strong>.</p>
+<p>Several excellent kuzushiji OCR systems exist (<a href="https://codh.rois.ac.jp/miwo/" target="_blank" rel="noopener">miwo</a>, <a href="https://camera.fuminoha.jp/" target="_blank" rel="noopener">Kobunsho Camera</a>, <a href="https://lab.ndl.go.jp/data_set/lite-usage/" target="_blank" rel="noopener">NDL Kotenseki OCR</a>, etc.). What sets this system apart is that <strong>it recognizes annotation information such as furigana and kanbun reading marks (kunten)</strong>. Minna de Honkoku uses a lightweight markup language <a href="https://koji-lang.org/" target="_blank" rel="noopener">Koji</a> for these annotations, and this OCR outputs them in the same format.</p>
+
+<h2>How to use</h2>
+<ol>
+  <li>Register images via the “Add images” button (multiple images supported).</li>
+  <li>Run “Layout” to detect line positions and reading order. You can adjust them manually.</li>
+  <li>Click “OCR” and wait for processing to finish. Results appear in the transcription panel on the right.</li>
+</ol>
+
+<h2>Notes</h2>
+<p>Recognition accuracy may drop significantly on low-resolution images. Please use high-resolution images whenever possible.</p>
+
+<h2>Contact</h2>
+<p>Minna de Honkoku support: <code>support[at]honkoku.org</code></p>
+
+<h2>Disclaimer</h2>
+<p>OCR results produced by this app are AI estimates and may contain errors. Always perform human proofreading when the output will be used for research, publication, or other critical purposes. The developer and affiliated institutions assume no responsibility for any damage arising from use of this app.</p>
+<p>This app runs entirely in your browser using <a href="https://www.npmjs.com/package/onnxruntime-web" target="_blank" rel="noopener">ONNX Web Runtime</a>. Your images and OCR results are never transmitted externally.</p>
+
+<p class="meta">Developed by <a href="https://x.com/yuta1984" target="_blank" rel="noopener">Yuta Hashimoto</a> (National Museum of Japanese History / NDL)　/　<a href="https://github.com/yuta1984/honkoku-ocr-web" target="_blank" rel="noopener">GitHub ↗</a></p>
+</article>
+
+</main>
+</body>
+</html>

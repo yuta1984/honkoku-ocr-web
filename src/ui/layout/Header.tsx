@@ -4,28 +4,30 @@ interface HeaderProps {
   lang: Language
   onToggleLanguage: () => void
   onOpenSettings: () => void
-  onOpenAbout: () => void
-  onOpenTechInfo: () => void
   onLogoClick: () => void
 }
 
-export function Header({ lang, onToggleLanguage, onOpenSettings, onOpenAbout, onOpenTechInfo, onLogoClick }: HeaderProps) {
+export function Header({ lang, onToggleLanguage, onOpenSettings, onLogoClick }: HeaderProps) {
+  const base = import.meta.env.BASE_URL
   return (
     <header className="header">
       <button className="header-title" onClick={onLogoClick}>
-        <img className="header-logo" src={`${import.meta.env.BASE_URL}soramaru/01_normal.png`} alt="" />
+        <img className="header-logo" src={`${base}soramaru/01_normal.png`} alt="" />
         <h1>みんなで翻刻OCR</h1>
         <span className="header-subtitle">
           {lang === 'ja' ? '市民の力で作ったくずし字AI-OCR' : 'Kuzushiji AI-OCR powered by citizen scholars'}
         </span>
       </button>
       <div className="header-actions">
-        <button className="btn-header-link" onClick={onOpenAbout}>
+        <a className="btn-header-link" href={`${base}about.html`} target="_blank" rel="noopener noreferrer">
           {lang === 'ja' ? '本アプリについて' : 'About'}
-        </button>
-        <button className="btn-header-link" onClick={onOpenTechInfo}>
+        </a>
+        <a className="btn-header-link" href={`${base}tech.html`} target="_blank" rel="noopener noreferrer">
           {lang === 'ja' ? '技術情報' : 'Technical Details'}
-        </button>
+        </a>
+        <a className="btn-header-link" href="https://honkoku.org/" target="_blank" rel="noopener noreferrer">
+          {lang === 'ja' ? 'みんなで翻刻' : 'Minna de Honkoku'}
+        </a>
         <button className="btn-icon" onClick={onOpenSettings} title={lang === 'ja' ? '設定' : 'Settings'}>
           ⚙️
         </button>
