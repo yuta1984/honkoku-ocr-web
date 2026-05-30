@@ -6,7 +6,8 @@ import { useModelVersion } from './hooks/useModelVersion'
 import { useOCRWorker } from './hooks/useOCRWorker'
 import { usePageStore } from './hooks/usePageStore'
 import { Header } from './ui/layout/Header'
-import { Footer } from './ui/layout/Footer'
+import { AboutDialog } from './ui/about/AboutDialog'
+import { TechInfoDialog } from './ui/about/TechInfoDialog'
 import { StatusBar } from './ui/StatusBar'
 import { JobBar } from './ui/JobBar'
 import { PageSidebar } from './ui/sidebar/PageSidebar'
@@ -29,15 +30,16 @@ export default function App() {
   const {
     pages, selectedId, selectedPage, selectedOrder, setSelectedOrder, selectedDataUrl,
     isLoadingFiles, fileLoadingState, pagesRef, getBlob,
-    addImages, handlePaste, selectPage, clearAll, updatePage, updateLine, deleteLine,
+    addImages, handlePaste, selectPage, clearAll, removePage, updatePage, updateLine, updateLineText, deleteLine,
     swapOrder, addLine,
   } = store
 
   const [job, setJob] = useState<JobProgress>(idleJob)
   const [showSettings, setShowSettings] = useState(false)
+  const [showAbout, setShowAbout] = useState(false)
+  const [showTechInfo, setShowTechInfo] = useState(false)
   const [rightWidth, setRightWidth] = useState(480)   // 翻刻パネル幅(px、ドラッグで変更)
   const [rightVisible, setRightVisible] = useState(true)
-  const [footerVisible, setFooterVisible] = useState(true)
   const { dragOver, dropProps } = useFileDrop(addImages)
 
   const handleClearAll = useCallback(() => { clearAll(); setJob(idleJob) }, [clearAll])
@@ -139,7 +141,14 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header lang={lang} onToggleLanguage={toggleLanguage} onOpenSettings={() => setShowSettings(true)} onLogoClick={handleClearAll} />
+      <Header
+        lang={lang}
+        onToggleLanguage={toggleLanguage}
+        onOpenSettings={() => setShowSettings(true)}
+        onOpenAbout={() => setShowAbout(true)}
+        onOpenTechInfo={() => setShowTechInfo(true)}
+        onLogoClick={handleClearAll}
+      />
       <StatusBar modelState={modelState} lang={lang} />
 
       <main className="main">
@@ -156,6 +165,7 @@ export default function App() {
           onAddImages={addImages}
           onPaste={handlePaste}
           onSelectPage={selectPage}
+          onRemovePage={removePage}
           onLayoutAll={() => runLayout(pages.map((p) => p.id))}
           onOcrAll={() => runOCR(pages.map((p) => p.id))}
           onClearAll={handleClearAll}
@@ -219,18 +229,19 @@ export default function App() {
         {rightVisible && <div className="splitter" onPointerDown={startSplitDrag} title={lang === 'ja' ? 'ドラッグで幅を調整' : 'Drag to resize'} />}
         {rightVisible && (
           <aside className="right" style={{ flex: `0 0 ${rightWidth}px`, width: rightWidth }}>
-            <ResultPanel item={selectedPage} selectedOrder={selectedOrder} onSelectLine={setSelectedOrder} lang={lang} />
+            <ResultPanel
+              item={selectedPage}
+              selectedOrder={selectedOrder}
+              onSelectLine={setSelectedOrder}
+              onUpdateLineText={updateLineText}
+              lang={lang}
+            />
           </aside>
         )}
       </main>
 
-      {footerVisible ? (
-        <Footer lang={lang} onHide={() => setFooterVisible(false)} />
-      ) : (
-        <button className="footer-restore" onClick={() => setFooterVisible(true)}>
-          {lang === 'ja' ? 'ⓘ クレジット・プライバシー情報を表示' : 'ⓘ Show credits / privacy'}
-        </button>
-      )}
+      {showAbout && <AboutDialog lang={lang} onClose={() => setShowAbout(false)} />}
+      {showTechInfo && <TechInfoDialog lang={lang} onClose={() => setShowTechInfo(false)} />}
       {showSettings && (
         <SettingsModal
           onClose={() => setShowSettings(false)}
