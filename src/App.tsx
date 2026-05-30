@@ -44,8 +44,6 @@ export default function App() {
   const [mobileTab, setMobileTab] = useState<'viewer' | 'result'>('viewer')
   const [showSourcePicker, setShowSourcePicker] = useState(false)
   const sourceInputRef = useRef<HTMLInputElement>(null)
-  const isMobileRef = useRef(isMobile)
-  useEffect(() => { isMobileRef.current = isMobile }, [isMobile])
   const { dragOver, dropProps } = useFileDrop(addImages)
 
   const handleClearAll = useCallback(() => { clearAll(); setJob(idleJob) }, [clearAll])
@@ -63,6 +61,17 @@ export default function App() {
   // モバイル ↔ デスクトップ切替時に drawer を閉じる
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (!isMobile) setMobileSidebarOpen(false) }, [isMobile])
+
+  // モバイル: OCR ジョブが「実行中→完了」へ遷移した瞬間に翻刻タブへ自動切替
+  // runOCR の closure 内で setMobileTab を呼ぶ方式は iOS で確実に効かなかったため、
+  // 観測可能な job.active の transition を見る reactive な方式に置き換える。
+  const wasOcrActiveRef = useRef(false)
+  useEffect(() => {
+    const isOcrActive = job.active && job.kind === 'ocr'
+    const justFinished = wasOcrActiveRef.current && !isOcrActive
+    wasOcrActiveRef.current = isOcrActive
+    if (justFinished && isMobile) setMobileTab('result')
+  }, [job.active, job.kind, isMobile])
 
   // --- レイアウト認識 ---
   const runLayout = useCallback(async (ids: string[]) => {
@@ -90,7 +99,6 @@ export default function App() {
   const runOCR = useCallback(async (ids: string[]) => {
     const targets = ids.filter((id) => pagesRef.current.some((p) => p.id === id))
     if (targets.length === 0) return
-    let anyOcrSucceeded = false
     setJob({ active: true, kind: 'ocr', current: 0, total: targets.length, stage: 'OCR', detail: 0, message: '' })
     for (let i = 0; i < targets.length; i++) {
       const id = targets[i]
@@ -120,14 +128,11 @@ export default function App() {
         })
         const newLines = page.lines.map((l, idx) => ({ ...l, raw: map.get(idx) ?? '' }))
         updatePage(id, { lines: newLines, status: 'ocr' })
-        anyOcrSucceeded = true
       } catch (err) {
         console.error('ocr failed', err)
       }
     }
     setJob(idleJob)
-    // モバイル: OCR 完了時に翻刻タブへ自動切替（少なくとも 1 ページ成功した場合のみ）
-    if (anyOcrSucceeded && isMobileRef.current) setMobileTab('result')
   }, [detectLayout, recognizeLines, updatePage, pagesRef, getBlob])
 
   // ビューアと翻刻パネルの境界ドラッグ（デスクトップ専用）
