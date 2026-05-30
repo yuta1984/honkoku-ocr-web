@@ -22,6 +22,9 @@ interface PageSidebarProps {
   ocrHint: string
   ocrPagesCount: number
   busy: boolean
+  isOpen: boolean       // モバイル drawer 用
+  isMobile: boolean
+  onClose: () => void   // モバイル drawer の close
   onAddImages: (files: File[]) => void
   onPaste: () => void
   onSelectPage: (id: string) => void
@@ -34,9 +37,12 @@ interface PageSidebarProps {
 
 export function PageSidebar(p: PageSidebarProps) {
   const { lang } = p
+  const base = import.meta.env.BASE_URL
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  // モバイル: drawer の開閉状態にアクセシビリティ属性を反映する
+  const ariaHidden = p.isMobile && !p.isOpen
 
   // 外側クリック / Esc でメニューを閉じる
   useEffect(() => {
@@ -53,8 +59,15 @@ export function PageSidebar(p: PageSidebarProps) {
     }
   }, [menuOpenId])
 
+  const sidebarClass = `sidebar${p.isMobile ? ' sidebar-drawer' : ''}${p.isOpen ? ' is-open' : ''}`
   return (
-    <aside className="sidebar">
+    <aside className={sidebarClass} aria-hidden={ariaHidden}>
+      {p.isMobile && (
+        <div className="sidebar-drawer-header">
+          <span className="sidebar-drawer-title">{lang === 'ja' ? '画像一覧' : 'Images'}</span>
+          <button className="btn-close" onClick={p.onClose} aria-label={lang === 'ja' ? '閉じる' : 'Close'}>✕</button>
+        </div>
+      )}
       <div className="sidebar-actions">
         <button className="btn btn-primary btn-block" onClick={() => fileInputRef.current?.click()} disabled={p.isLoadingFiles}>
           {lang === 'ja' ? '＋ 画像を追加' : '＋ Add images'}
@@ -118,6 +131,20 @@ export function PageSidebar(p: PageSidebarProps) {
           )
         })}
       </div>
+
+      {p.isMobile && (
+        <div className="sidebar-mobile-links">
+          <a href={`${base}about.html`} target="_blank" rel="noopener noreferrer">
+            {lang === 'ja' ? '本アプリについて' : 'About'}
+          </a>
+          <a href={`${base}tech.html`} target="_blank" rel="noopener noreferrer">
+            {lang === 'ja' ? '技術情報' : 'Technical Details'}
+          </a>
+          <a href="https://honkoku.org/" target="_blank" rel="noopener noreferrer">
+            {lang === 'ja' ? 'みんなで翻刻' : 'Minna de Honkoku'}
+          </a>
+        </div>
+      )}
 
       {p.pages.length > 0 && (
         <div className="sidebar-batch">

@@ -8,8 +8,16 @@ import RecognitionWorkerFactory from '../ocr/recognition.worker.ts?worker'
 
 // 認識ワーカー数: CPU 数に応じて増やすが、各ワーカーが encoder+decoder セッションを
 // 1 組ずつ持つためメモリ上限として MAX で抑える。
+// モバイル端末(または deviceMemory < 4GB の低メモリ環境)では OOM 防止のため必ず 1 にする。
 const MAX_REC_WORKERS = 4
-const N_REC_WORKERS = Math.min(Math.max((navigator.hardwareConcurrency ?? 4) - 1, 1), MAX_REC_WORKERS)
+type NavWithMemory = Navigator & { deviceMemory?: number }
+const ua = typeof navigator !== 'undefined' ? (navigator.userAgent ?? '') : ''
+const IS_MOBILE_UA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(ua)
+const DEVICE_MEM = (typeof navigator !== 'undefined' ? (navigator as NavWithMemory).deviceMemory : undefined) ?? 8
+const IS_LOW_MEM = DEVICE_MEM < 4
+const N_REC_WORKERS = (IS_MOBILE_UA || IS_LOW_MEM)
+  ? 1
+  : Math.min(Math.max((navigator.hardwareConcurrency ?? 4) - 1, 1), MAX_REC_WORKERS)
 
 // 行 crop の余白(px)。レイアウト bbox は主文字に密着しており、縦書きでは
 // ふりがなが主行の右側にはみ出すため、そのまま切ると ふりがな/字形 が切れる。

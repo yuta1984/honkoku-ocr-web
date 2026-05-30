@@ -8,6 +8,7 @@ interface ToolbarProps {
   ocrHint: string
   rightVisible: boolean
   lang: Language
+  isMobile: boolean
   onLayout: () => void
   onOcr: () => void
   onToggleRight: () => void
@@ -36,11 +37,13 @@ export function Toolbar(p: ToolbarProps) {
             {selectedPage.lines.length} {lang === 'ja' ? '行' : 'lines'}
           </span>
         )}
-        <button className="btn btn-secondary btn-sm" onClick={p.onToggleRight}>
-          {p.rightVisible
-            ? (lang === 'ja' ? '翻刻パネルを隠す ▶' : 'Hide panel ▶')
-            : (lang === 'ja' ? '◀ 翻刻パネルを表示' : '◀ Show panel')}
-        </button>
+        {!p.isMobile && (
+          <button className="btn btn-secondary btn-sm" onClick={p.onToggleRight}>
+            {p.rightVisible
+              ? (lang === 'ja' ? '翻刻パネルを隠す ▶' : 'Hide panel ▶')
+              : (lang === 'ja' ? '◀ 翻刻パネルを表示' : '◀ Show panel')}
+          </button>
+        )}
       </div>
     </div>
   )

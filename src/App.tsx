@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { JobProgress } from './types/ocr'
 import { useLang } from './hooks/useLang'
 import { useFileDrop } from './hooks/useFileDrop'
+import { useMediaQuery } from './hooks/useMediaQuery'
 import { useModelVersion } from './hooks/useModelVersion'
 import { useOCRWorker } from './hooks/useOCRWorker'
 import { usePageStore } from './hooks/usePageStore'
@@ -14,14 +15,17 @@ import { ViewerBottomBar } from './ui/viewer/ViewerBottomBar'
 import { ImageViewer } from './ui/viewer/ImageViewer'
 import { ResultPanel } from './ui/results/ResultPanel'
 import { SettingsModal } from './ui/settings/SettingsModal'
+import { ImageSourcePicker } from './ui/mobile/ImageSourcePicker'
 import { decodeBlobToImageData } from './lib/imageLoader'
 import { downloadPages, type ExportFormat } from './lib/textExport'
 import './styles/app.css'
 
 const idleJob: JobProgress = { active: false, kind: null, current: 0, total: 0, stage: '', detail: 0, message: '' }
+const FILE_ACCEPT_ALL = 'image/jpeg,image/png,image/tiff,image/heic,image/heif,.tif,.tiff,.heic,.heif,application/pdf'
 
 export default function App() {
   const { lang, toggleLanguage } = useLang()
+  const isMobile = useMediaQuery('(max-width: 768px)')
   const { modelVersion, setModelVersion } = useModelVersion()
   const { isReady, modelState, detectLayout, recognizeLines } = useOCRWorker(modelVersion)
   const store = usePageStore()
@@ -34,11 +38,29 @@ export default function App() {
 
   const [job, setJob] = useState<JobProgress>(idleJob)
   const [showSettings, setShowSettings] = useState(false)
-  const [rightWidth, setRightWidth] = useState(480)   // 翻刻パネル幅(px、ドラッグで変更)
+  const [rightWidth, setRightWidth] = useState(480)
   const [rightVisible, setRightVisible] = useState(true)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [mobileTab, setMobileTab] = useState<'viewer' | 'result'>('viewer')
+  const [showSourcePicker, setShowSourcePicker] = useState(false)
+  const sourceInputRef = useRef<HTMLInputElement>(null)
   const { dragOver, dropProps } = useFileDrop(addImages)
 
   const handleClearAll = useCallback(() => { clearAll(); setJob(idleJob) }, [clearAll])
+
+  // モバイル: 画像追加時はビューアタブへ自動切替 + drawer を閉じる
+  useEffect(() => {
+    if (!isMobile) return
+    if (selectedId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMobileTab('viewer')
+      setMobileSidebarOpen(false)
+    }
+  }, [selectedId, isMobile])
+
+  // モバイル ↔ デスクトップ切替時に drawer を閉じる
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (!isMobile) setMobileSidebarOpen(false) }, [isMobile])
 
   // --- レイアウト認識 ---
   const runLayout = useCallback(async (ids: string[]) => {
@@ -52,7 +74,7 @@ export default function App() {
       if (!blob) continue
       setJob((j) => ({ ...j, current: i + 1, detail: 0, message: `${page.fileName} を解析中...` }))
       try {
-        const imageData = await decodeBlobToImageData(blob) // 処理直前に展開
+        const imageData = await decodeBlobToImageData(blob)
         const { lines, regions } = await detectLayout(imageData)
         updatePage(id, { lines, regions, status: 'layout' })
       } catch (err) {
@@ -73,7 +95,7 @@ export default function App() {
       const blob = getBlob(id)
       if (!blob) continue
       setJob((j) => ({ ...j, current: i + 1, detail: 0, message: `${page.fileName}` }))
-      const imageData = await decodeBlobToImageData(blob) // このループ反復のみ保持
+      const imageData = await decodeBlobToImageData(blob)
 
       if (page.status === 'unprocessed' || page.lines.length === 0) {
         try {
@@ -102,7 +124,7 @@ export default function App() {
     setJob(idleJob)
   }, [detectLayout, recognizeLines, updatePage, pagesRef, getBlob])
 
-  // ビューアと翻刻パネルの境界ドラッグ（右パネル幅を変更）
+  // ビューアと翻刻パネルの境界ドラッグ（デスクトップ専用）
   const startSplitDrag = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
     const onMove = (ev: PointerEvent) => setRightWidth(Math.max(280, Math.min(window.innerWidth - 420, window.innerWidth - ev.clientX)))
@@ -116,6 +138,24 @@ export default function App() {
     document.addEventListener('pointerup', onUp)
     document.body.style.cursor = 'col-resize'
     document.body.style.userSelect = 'none'
+  }, [])
+
+  // 画像ソース選択（モバイル）: 隠し input の accept/capture を切替えて click
+  const handleSourceSelect = useCallback((kind: 'camera' | 'library' | 'file') => {
+    const input = sourceInputRef.current
+    if (!input) return
+    if (kind === 'camera') {
+      input.accept = 'image/*'
+      input.setAttribute('capture', 'environment')
+    } else if (kind === 'library') {
+      input.accept = 'image/*'
+      input.removeAttribute('capture')
+    } else {
+      input.accept = FILE_ACCEPT_ALL
+      input.removeAttribute('capture')
+    }
+    setShowSourcePicker(false)
+    input.click()
   }, [])
 
   const busy = job.active || isLoadingFiles
@@ -135,17 +175,47 @@ export default function App() {
     }
   }
 
+  // モバイル: 翻刻パネルは常時マウント(タブで表示切替)。デスクトップは rightVisible に従う
+  const showRight = isMobile ? true : rightVisible
+  const rightStyle = isMobile ? undefined : { flex: `0 0 ${rightWidth}px`, width: rightWidth }
+  const mainClass = `main${isMobile ? ` mobile mobile-tab-${mobileTab}` : ''}`
+
   return (
     <div className="app">
       <Header
         lang={lang}
         onToggleLanguage={toggleLanguage}
         onOpenSettings={() => setShowSettings(true)}
+        onMenuToggle={() => setMobileSidebarOpen((v) => !v)}
         onLogoClick={handleClearAll}
       />
       <StatusBar modelState={modelState} lang={lang} />
 
-      <main className="main">
+      {isMobile && (
+        <div className="mobile-tabs" role="tablist">
+          <button
+            role="tab"
+            aria-selected={mobileTab === 'viewer'}
+            className={`mobile-tab ${mobileTab === 'viewer' ? 'active' : ''}`}
+            onClick={() => setMobileTab('viewer')}
+          >
+            {lang === 'ja' ? '📷 ビューア' : '📷 Viewer'}
+          </button>
+          <button
+            role="tab"
+            aria-selected={mobileTab === 'result'}
+            className={`mobile-tab ${mobileTab === 'result' ? 'active' : ''}`}
+            onClick={() => setMobileTab('result')}
+          >
+            {lang === 'ja' ? '📜 翻刻' : '📜 Transcription'}
+          </button>
+        </div>
+      )}
+
+      <main className={mainClass}>
+        {isMobile && mobileSidebarOpen && (
+          <div className="sidebar-backdrop" onClick={() => setMobileSidebarOpen(false)} />
+        )}
         <PageSidebar
           pages={pages}
           selectedId={selectedId}
@@ -156,6 +226,9 @@ export default function App() {
           ocrHint={ocrHint}
           ocrPagesCount={ocrPages.length}
           busy={busy}
+          isOpen={mobileSidebarOpen}
+          isMobile={isMobile}
+          onClose={() => setMobileSidebarOpen(false)}
           onAddImages={addImages}
           onPaste={handlePaste}
           onSelectPage={selectPage}
@@ -174,13 +247,24 @@ export default function App() {
             ocrHint={ocrHint}
             rightVisible={rightVisible}
             lang={lang}
+            isMobile={isMobile}
             onLayout={() => selectedPage && runLayout([selectedPage.id])}
             onOcr={() => selectedPage && runOCR([selectedPage.id])}
             onToggleRight={() => setRightVisible((v) => !v)}
           />
           <JobBar job={job} isLoadingFiles={isLoadingFiles} fileLoadingState={fileLoadingState} lang={lang} />
 
-          <div className={`viewer-wrap ${dragOver ? 'drag-over' : ''}`} {...dropProps}>
+          <div
+            className={`viewer-wrap ${dragOver ? 'drag-over' : ''}`}
+            {...dropProps}
+            onClick={(e) => {
+              // モバイル: 画像未読み込み時に placeholder タップで画像ソース選択
+              if (!isMobile || selectedPage) return
+              if ((e.target as HTMLElement).closest('.viewer-placeholder')) {
+                setShowSourcePicker(true)
+              }
+            }}
+          >
             {selectedPage ? (
               <ImageViewer
                 key={selectedPage.id}
@@ -197,7 +281,11 @@ export default function App() {
               <div className="viewer-placeholder">
                 <img className="placeholder-icon" src={`${import.meta.env.BASE_URL}soramaru/03_star.png`} alt="" />
 
-                <p>{lang === 'ja' ? '画像をここにドラッグ&ドロップ、または左の「画像を追加」から読み込んでください' : 'Drag & drop images here, or use “Add images” on the left'}</p>
+                <p>
+                  {isMobile
+                    ? (lang === 'ja' ? 'タップして画像を追加（カメラ・ライブラリ・ファイル）' : 'Tap to add image (camera / library / file)')
+                    : (lang === 'ja' ? '画像をここにドラッグ&ドロップ、または左の「画像を追加」から読み込んでください' : 'Drag & drop images here, or use “Add images” on the left')}
+                </p>
                 <p className="placeholder-sub">{lang === 'ja' ? 'JPG / PNG / TIFF / HEIC / PDF・Ctrl+V で貼り付け可' : 'JPG / PNG / TIFF / HEIC / PDF · Ctrl+V to paste'}</p>
               </div>
             )}
@@ -220,9 +308,11 @@ export default function App() {
           )}
         </section>
 
-        {rightVisible && <div className="splitter" onPointerDown={startSplitDrag} title={lang === 'ja' ? 'ドラッグで幅を調整' : 'Drag to resize'} />}
-        {rightVisible && (
-          <aside className="right" style={{ flex: `0 0 ${rightWidth}px`, width: rightWidth }}>
+        {showRight && !isMobile && (
+          <div className="splitter" onPointerDown={startSplitDrag} title={lang === 'ja' ? 'ドラッグで幅を調整' : 'Drag to resize'} />
+        )}
+        {showRight && (
+          <aside className="right" style={rightStyle}>
             <ResultPanel
               item={selectedPage}
               selectedOrder={selectedOrder}
@@ -233,6 +323,26 @@ export default function App() {
           </aside>
         )}
       </main>
+
+      {/* モバイル: 画像ソース選択 bottom sheet + 隠し input */}
+      {showSourcePicker && (
+        <ImageSourcePicker
+          lang={lang}
+          onSelect={handleSourceSelect}
+          onClose={() => setShowSourcePicker(false)}
+        />
+      )}
+      <input
+        ref={sourceInputRef}
+        type="file"
+        multiple
+        accept={FILE_ACCEPT_ALL}
+        onChange={(e) => {
+          if (e.target.files) addImages(Array.from(e.target.files))
+          e.target.value = ''
+        }}
+        style={{ display: 'none' }}
+      />
 
       {showSettings && (
         <SettingsModal
