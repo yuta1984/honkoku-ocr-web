@@ -12,6 +12,14 @@ const STATUS_LABEL: Record<ImageStatus, { ja: string; en: string; cls: string }>
 
 const ACCEPT = 'image/jpeg,image/png,image/tiff,image/heic,image/heif,.tif,.tiff,.heic,.heif,application/pdf'
 
+// R2 honkoku-ocr/samples/ にホストしたサンプル画像。ボタン押下時にランダムに 1 枚追加。
+const SAMPLE_BASE = 'https://pub-1b00c465f60640a3bf9b7b7d329d06cc.r2.dev/samples'
+const SAMPLE_FILES = [
+  '4F822CFAD188526AD31AF4804FBFBF0E_002.jpg',
+  '777f243e4cecb84536467e5218be681b_002.jpg',
+  'f7a72665bc6bc8e4ee7a2210978c7d87_010.jpg',
+]
+
 interface PageSidebarProps {
   pages: PageItem[]
   selectedId: string | null
@@ -43,6 +51,25 @@ export function PageSidebar(p: PageSidebarProps) {
   const menuRef = useRef<HTMLDivElement | null>(null)
   // モバイル: drawer の開閉状態にアクセシビリティ属性を反映する
   const ariaHidden = p.isMobile && !p.isOpen
+  const [loadingSample, setLoadingSample] = useState(false)
+
+  // サンプル画像 (R2) を 1 枚ランダムに fetch して addImages に流す
+  const handleLoadSample = async () => {
+    const name = SAMPLE_FILES[Math.floor(Math.random() * SAMPLE_FILES.length)]
+    setLoadingSample(true)
+    try {
+      const res = await fetch(`${SAMPLE_BASE}/${name}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const blob = await res.blob()
+      const file = new File([blob], name, { type: blob.type || 'image/jpeg' })
+      p.onAddImages([file])
+    } catch (e) {
+      console.error('sample fetch failed:', e)
+      alert(lang === 'ja' ? 'サンプルの読み込みに失敗しました' : 'Failed to load sample')
+    } finally {
+      setLoadingSample(false)
+    }
+  }
 
   // 外側クリック / Esc でメニューを閉じる
   useEffect(() => {
@@ -74,6 +101,15 @@ export function PageSidebar(p: PageSidebarProps) {
         </button>
         <button className="btn btn-secondary btn-block" onClick={p.onPaste} disabled={p.isLoadingFiles}>
           {lang === 'ja' ? 'クリップボードから貼り付け' : 'Paste from clipboard'}
+        </button>
+        <button
+          className="btn btn-secondary btn-block"
+          onClick={handleLoadSample}
+          disabled={p.isLoadingFiles || loadingSample}
+        >
+          {loadingSample
+            ? (lang === 'ja' ? 'サンプルを読み込み中...' : 'Loading sample...')
+            : (lang === 'ja' ? 'サンプル' : 'Sample')}
         </button>
         <input
           ref={fileInputRef}

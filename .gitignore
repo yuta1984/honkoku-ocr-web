@@ -15,6 +15,9 @@ dist-ssr
 # ONNXモデルは R2 から配信するためリポジトリに含めない（VITE_MODEL_BASE_URL で参照）
 public/models/*.onnx
 
+# サンプル画像も R2 (honkoku-ocr/samples/) から配信するためリポジトリには含めない
+samples/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
