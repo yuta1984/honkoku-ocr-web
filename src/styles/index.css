@@ -22,11 +22,17 @@
 html, body, #root {
   height: 100%;
   margin: 0;
+  /* iOS Safari の rubber-band bounce 抑制（行 bbox ドラッグ中に画面全体が跳ねるのを防ぐ） */
+  overscroll-behavior: none;
+  overflow: hidden;
 }
 
 body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
+  /* タップ時のテキスト選択ハイライト・自動拡大を抑える */
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 a { color: var(--accent); }

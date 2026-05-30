@@ -249,6 +249,7 @@
   border: 2px solid var(--accent-strong);
   background: rgba(25, 118, 210, 0.10);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6);
+  touch-action: none;              /* タッチドラッグでブラウザ既定のスクロール/ズームを発動させない */
 }
 .edit-h {
   position: absolute;
@@ -257,6 +258,7 @@
   border: 2px solid var(--accent-strong);
   border-radius: 2px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  touch-action: none;              /* リサイズハンドルも同様にブラウザのデフォルトジェスチャを抑止 */
 }
 .edit-nw { left: -6px; top: -6px; cursor: nwse-resize; }
 .edit-n  { left: 50%; top: -6px; transform: translateX(-50%); cursor: ns-resize; }
