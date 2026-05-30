@@ -39,6 +39,13 @@
   border: 1px solid rgba(255,255,255,0.4);
   color: #fff; border-radius: 6px; padding: 6px 10px; font-size: 0.82rem;
 }
+.btn-header-link {
+  background: none; border: none; color: #fff;
+  font-size: 0.85rem; padding: 6px 8px; opacity: 0.92;
+  text-decoration: underline; text-decoration-color: rgba(255,255,255,0.5);
+  text-underline-offset: 3px;
+}
+.btn-header-link:hover { opacity: 1; text-decoration-color: #fff; }
 
 /* ===== モデルステータスバー ===== */
 .statusbar {
@@ -93,7 +100,7 @@
 .sidebar-empty { color: var(--muted); text-align: center; font-size: 0.85rem; padding: 24px 8px; }
 .sidebar-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   width: 100%;
   min-width: 0;
@@ -103,9 +110,13 @@
   border-radius: 8px;
   padding: 6px;
   margin-bottom: 4px;
+  cursor: pointer;
+  position: relative;
 }
 .sidebar-item:hover { background: #f5f5f5; }
 .sidebar-item.active { background: #e3f2fd; border-color: var(--accent); }
+.sidebar-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sidebar-index { padding-top: 4px; }
 .sidebar-index {
   flex: 0 0 22px;
   text-align: center;
@@ -124,7 +135,9 @@
 .sidebar-meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 0; }
 .sidebar-name {
   font-size: 0.8rem;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;        /* 拡張子区切りなしでも折り返す */
+  line-height: 1.35;
 }
 .status-badge {
   align-self: flex-start;
@@ -136,6 +149,40 @@
 .status-badge.st-none { color: var(--muted); border-color: var(--line); background: #f5f5f5; }
 .status-badge.st-layout { color: var(--type); border-color: #bcd6ea; background: #eef5fb; }
 .status-badge.st-ocr { color: var(--ok); border-color: #bfe0c6; background: #eef8f0; }
+
+/* サイドバー画像の ⋯ メニュー */
+.sidebar-menu { flex: 0 0 auto; position: relative; align-self: flex-start; }
+.sidebar-menu-btn {
+  background: none; border: none; color: var(--muted);
+  width: 22px; height: 22px; border-radius: 4px;
+  font-size: 1rem; line-height: 1; padding: 0;
+  cursor: pointer;
+}
+.sidebar-menu-btn:hover { background: rgba(0,0,0,0.06); color: var(--ink); }
+.sidebar-menu-list {
+  position: absolute;
+  top: 100%; right: 0;
+  z-index: 90;
+  margin-top: 2px;
+  min-width: 110px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.sidebar-menu-item {
+  background: none; border: none;
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+.sidebar-menu-item:hover { background: #f5f5f5; }
+.sidebar-menu-item.danger { color: var(--hand); }
+.sidebar-menu-item.danger:hover { background: #fdecea; }
 
 .sidebar-batch { padding: 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
 .sidebar-batch-title { font-size: 0.75rem; color: var(--muted); margin-bottom: 2px; }
@@ -187,6 +234,7 @@
   flex: 1 1 auto;
   position: relative;
   min-height: 0;
+  overflow: hidden;                /* 選択 bbox / ホバーポップアップが隣の UI に被らないように */
   background: #263238;
 }
 .osd-root { position: absolute; inset: 0; }
@@ -356,7 +404,7 @@
   background: var(--panel);
   border-left: 1px solid var(--line);
 }
-.vpanel { display: flex; flex-direction: column; width: 100%; min-height: 0; }
+.vpanel { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
 .vpanel-header {
   flex: 0 0 auto;
   display: flex; align-items: center; justify-content: space-between;
@@ -385,27 +433,34 @@
 
 .vtext {
   flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: row-reverse;     /* 読み順1を右端に */
   justify-content: flex-start;
-  align-items: stretch;
-  gap: 2px;
-  overflow: auto;
+  align-items: stretch;            /* 各行の高さをパネルに揃える → 縦超過時に自動 wrap */
+  gap: 6px;                        /* 行と行の間隔（境界の見分け用） */
+  overflow-x: auto;                /* X軸: スクロール有効 */
+  overflow-y: hidden;              /* Y軸: スクロールさせない */
   padding: 16px 14px;
 }
 .vline {
   position: relative;
   writing-mode: vertical-rl;
-  white-space: nowrap;
-  padding: 20px 3px 8px;
+  white-space: normal;             /* 縦書きで列が長くなったら左へ自動折り返し */
+  word-break: normal;              /* CJK は字間で wrap 可能 */
+  padding: 20px 6px 28px;          /* 上=番号 / 左右=列間余白 / 下=編集ボタン */
   border-radius: 5px;
   cursor: pointer;
   font-size: 0.95rem;
   line-height: 1.65;
   border: 1px solid transparent;
+  flex: 0 0 auto;
+  height: 100%;                    /* parent (.vtext) の definite height を継承 → wrap 発火 */
+  overflow: hidden;                /* 想定外の超過は clip（基本は wrap で吸収される） */
 }
 .vline:hover { background: #f5f5f5; }
 .vline.selected { background: #e3f2fd; border-color: var(--accent); }
+.vline.editing { background: #fff9c4; border-color: #fbc02d; }
 .vline-no {
   position: absolute;
   top: 4px; left: 50%;
@@ -419,6 +474,37 @@
   font-variant-numeric: tabular-nums;
 }
 .vline-text { display: inline; }
+.vline-edit {
+  outline: none;
+  caret-color: var(--accent);
+  background: #fff;
+  border: 1px dashed var(--accent);
+  padding: 2px;
+  border-radius: 4px;
+  min-height: 40px;
+}
+.vline-edit-btn {
+  position: absolute;
+  bottom: 4px; left: 50%;
+  transform: translateX(-50%);
+  writing-mode: horizontal-tb;
+  width: 20px; height: 20px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.vline:hover .vline-edit-btn,
+.vline.selected .vline-edit-btn,
+.vline.editing .vline-edit-btn { opacity: 1; }
+.vline-edit-btn:hover { background: #e3f2fd; color: var(--accent-strong); border-color: var(--accent); }
+.vline.editing .vline-edit-btn { background: var(--accent); color: #fff; border-color: var(--accent); opacity: 1; }
 
 /* ===== ボタン ===== */
 .btn {
@@ -479,33 +565,45 @@
 }
 .dlmenu-list button:hover { background: #e3f2fd; }
 
-/* ===== フッター ===== */
-.footer {
-  flex: 0 0 auto;
-  background: #eeeeee;
-  border-top: 1px solid var(--line);
-  padding: 6px 18px;
-  font-size: 0.72rem;
-  color: var(--muted);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 18px;
-  align-items: center;
+/* ===== About ダイアログ ===== */
+.panel.about-panel {
+  max-width: 640px;
+  max-height: calc(100vh - 40px);
+  display: flex; flex-direction: column;
 }
-.footer-privacy { display: flex; align-items: center; gap: 6px; }
-.footer-meta { margin-left: auto; display: flex; gap: 14px; align-items: center; }
-.footer-close {
-  background: none; border: 1px solid var(--line); color: var(--muted);
-  width: 22px; height: 22px; border-radius: 6px; font-size: 0.9rem; line-height: 1;
+.about-panel .panel-header { flex: 0 0 auto; }
+.about-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;                /* 本文がパネルを超えたらスクロール */
+  font-size: 0.88rem;
+  color: var(--ink);
 }
-.footer-close:hover { background: #e0e0e0; color: var(--ink); }
-.footer-restore {
-  flex: 0 0 auto;
-  align-self: stretch;
-  background: #eeeeee; border: none; border-top: 1px solid var(--line);
-  color: var(--muted); font-size: 0.72rem; padding: 3px 0; cursor: pointer;
+.about-hero {
+  display: flex; justify-content: center;
+  padding: 4px 0 14px;
 }
-.footer-restore:hover { background: #e0e0e0; color: var(--ink); }
+.about-hero img { height: 140px; width: auto; }
+.about-steps { margin: 0; padding-left: 1.3em; line-height: 1.7; }
+.about-steps li + li { margin-top: 4px; }
+.about-body p { margin: 0; line-height: 1.7; }
+.about-body p + p { margin-top: 8px; }
+.about-body a { color: var(--accent); text-decoration: underline; }
+.about-body code {
+  background: #f5f5f5; border: 1px solid var(--line);
+  padding: 0 6px; border-radius: 4px;
+  font-size: 0.85em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.about-heading {
+  font-size: 0.95rem; font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--accent-strong);
+}
+.about-section { padding: 14px 0; }
+.about-section + .about-section { border-top: 1px solid var(--line); }
+.about-section:first-child { padding-top: 0; }
+.about-section:last-child { padding-bottom: 0; }
+.about-meta { font-size: 0.8rem; color: var(--muted); }
 
 /* ===== ビューア下部メニュー（行編集） ===== */
 .viewer-bottom {

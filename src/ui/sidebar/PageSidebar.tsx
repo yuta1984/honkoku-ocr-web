@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { PageItem, ImageStatus } from '../../types/ocr'
 import type { Language } from '../../hooks/useLang'
 import type { ExportFormat } from '../../lib/textExport'
@@ -25,6 +25,7 @@ interface PageSidebarProps {
   onAddImages: (files: File[]) => void
   onPaste: () => void
   onSelectPage: (id: string) => void
+  onRemovePage: (id: string) => void
   onLayoutAll: () => void
   onOcrAll: () => void
   onClearAll: () => void
@@ -34,6 +35,23 @@ interface PageSidebarProps {
 export function PageSidebar(p: PageSidebarProps) {
   const { lang } = p
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
+  // 外側クリック / Esc でメニューを閉じる
+  useEffect(() => {
+    if (menuOpenId == null) return
+    const onDocClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpenId(null)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpenId(null) }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [menuOpenId])
 
   return (
     <aside className="sidebar">
@@ -61,11 +79,15 @@ export function PageSidebar(p: PageSidebarProps) {
         {p.pages.map((page) => {
           const st = STATUS_LABEL[page.status]
           const name = page.pageIndex ? `${page.fileName} (p.${page.pageIndex})` : page.fileName
+          const isMenuOpen = menuOpenId === page.id
           return (
-            <button
+            <div
               key={page.id}
               className={`sidebar-item ${page.id === p.selectedId ? 'active' : ''}`}
+              role="button"
+              tabIndex={0}
               onClick={() => p.onSelectPage(page.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.onSelectPage(page.id) } }}
               title={name}
             >
               <span className="sidebar-index">{page.index}</span>
@@ -74,7 +96,25 @@ export function PageSidebar(p: PageSidebarProps) {
                 <span className="sidebar-name">{name}</span>
                 <span className={`status-badge ${st.cls}`}>{lang === 'ja' ? st.ja : st.en}</span>
               </span>
-            </button>
+              <div className="sidebar-menu" ref={isMenuOpen ? menuRef : undefined}>
+                <button
+                  className="sidebar-menu-btn"
+                  onClick={(e) => { e.stopPropagation(); setMenuOpenId(isMenuOpen ? null : page.id) }}
+                  aria-label={lang === 'ja' ? 'メニュー' : 'menu'}
+                  title={lang === 'ja' ? 'メニュー' : 'Menu'}
+                >⋯</button>
+                {isMenuOpen && (
+                  <div className="sidebar-menu-list" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="sidebar-menu-item danger"
+                      onClick={() => { setMenuOpenId(null); p.onRemovePage(page.id) }}
+                    >
+                      {lang === 'ja' ? '削除' : 'Delete'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           )
         })}
       </div>

@@ -48,6 +48,24 @@ export function usePageStore() {
     imageStore.current.clear()
   }, [])
 
+  // 単一画像を削除。選択中だった場合は隣の画像に選択を移す（無ければ null）。
+  // 残った画像の index は 1..N に詰め直す。
+  const removePage = useCallback((id: string) => {
+    setPages((prev) => {
+      const idx = prev.findIndex((p) => p.id === id)
+      if (idx < 0) return prev
+      const next = prev.filter((p) => p.id !== id).map((p, i) => ({ ...p, index: i + 1 }))
+      imageStore.current.delete(id)
+      setSelectedId((cur) => {
+        if (cur !== id) return cur
+        if (next.length === 0) return null
+        return next[Math.min(idx, next.length - 1)].id
+      })
+      return next
+    })
+    setSelectedOrder(null)
+  }, [])
+
   // --- 画像追加（追加した先頭の画像を自動選択） ---
   const addImages = useCallback(async (files: File[]) => {
     if (files.length === 0) return
@@ -111,6 +129,15 @@ export function usePageStore() {
     ))
   }, [selectedId])
 
+  // 行の OCR テキスト(raw)を上書き。Koji記法の生文字列をそのまま保存。
+  const updateLineText = useCallback((order: number, raw: string) => {
+    setPages((prev) => prev.map((p) =>
+      p.id === selectedId
+        ? { ...p, lines: p.lines.map((l) => (l.readingOrder === order ? { ...l, raw } : l)) }
+        : p
+    ))
+  }, [selectedId])
+
   const deleteLine = useCallback((order: number) => {
     setPages((prev) => prev.map((p) => {
       if (p.id !== selectedId) return p
@@ -159,25 +186,26 @@ export function usePageStore() {
   }, [selectedId, updatePage])
 
   // 矢印キーで読み順入替、Delete で削除、Esc で選択解除
+  // capture 段階で listen し、左右キーは stopImmediatePropagation で OSD のキーボードパンを抑止する。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (selectedOrder == null || !selectedPage || selectedPage.status === 'unprocessed') return
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return
-      if (e.key === 'ArrowLeft') { e.preventDefault(); swapOrder('later') }
-      else if (e.key === 'ArrowRight') { e.preventDefault(); swapOrder('earlier') }
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopImmediatePropagation(); swapOrder('later') }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); e.stopImmediatePropagation(); swapOrder('earlier') }
       else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteLine(selectedOrder) }
       else if (e.key === 'Escape') { setSelectedOrder(null) }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [selectedOrder, selectedPage, swapOrder, deleteLine])
 
   return {
     pages, selectedId, selectedPage, selectedOrder, setSelectedOrder, selectedDataUrl,
     isLoadingFiles, fileLoadingState,
     pagesRef, getBlob,
-    addImages, handlePaste, selectPage, clearAll, updatePage, updateLine, deleteLine,
+    addImages, handlePaste, selectPage, clearAll, removePage, updatePage, updateLine, updateLineText, deleteLine,
     swapOrder, addLine,
   }
 }

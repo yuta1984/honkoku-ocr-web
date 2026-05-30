@@ -31,10 +31,9 @@ export function Toolbar(p: ToolbarProps) {
         </button>
       </div>
       <div className="toolbar-right">
-        {selectedPage && (
+        {selectedPage && selectedPage.lines.length > 0 && (
           <span className="toolbar-info">
-            {selectedPage.pageIndex ? `${selectedPage.fileName} (p.${selectedPage.pageIndex})` : selectedPage.fileName}
-            {selectedPage.lines.length > 0 && ` / ${selectedPage.lines.length} ${lang === 'ja' ? '行' : 'lines'}`}
+            {selectedPage.lines.length} {lang === 'ja' ? '行' : 'lines'}
           </span>
         )}
         <button className="btn btn-secondary btn-sm" onClick={p.onToggleRight}>
