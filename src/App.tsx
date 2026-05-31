@@ -13,7 +13,7 @@ import { JobBar } from './ui/JobBar'
 import { PageSidebar } from './ui/sidebar/PageSidebar'
 import { Toolbar } from './ui/toolbar/Toolbar'
 import { ViewerBottomBar } from './ui/viewer/ViewerBottomBar'
-import { ImageViewer } from './ui/viewer/ImageViewer'
+import { ImageViewer, type ImageViewerHandle } from './ui/viewer/ImageViewer'
 import { ResultPanel } from './ui/results/ResultPanel'
 import { SettingsModal } from './ui/settings/SettingsModal'
 import { ImageSourcePicker } from './ui/mobile/ImageSourcePicker'
@@ -46,7 +46,14 @@ export default function App() {
   const [mobileTab, setMobileTab] = useState<'viewer' | 'result'>('viewer')
   const [showSourcePicker, setShowSourcePicker] = useState(false)
   const sourceInputRef = useRef<HTMLInputElement>(null)
+  const imageViewerRef = useRef<ImageViewerHandle | null>(null)
   const { dragOver, dropProps } = useFileDrop(addImages)
+
+  // 「行を追加」時は ImageViewer から現在の可視領域を取得して addLine に渡す。
+  // これにより、ズームインしている領域の中央に新規 bbox が置かれる。
+  const handleAddLine = useCallback(() => {
+    addLine(imageViewerRef.current?.getVisibleImageBounds() ?? undefined)
+  }, [addLine])
 
   const handleClearAll = useCallback(() => { clearAll(); setJob(idleJob) }, [clearAll])
 
@@ -280,6 +287,7 @@ export default function App() {
           >
             {selectedPage ? (
               <ImageViewer
+                ref={imageViewerRef}
                 key={selectedPage.id}
                 dataUrl={selectedDataUrl}
                 lines={selectedPage.lines}
@@ -316,7 +324,7 @@ export default function App() {
               onReorderLater={() => swapOrder('later')}
               onReorderEarlier={() => swapOrder('earlier')}
               onDelete={() => { if (selectedOrder != null) deleteLine(selectedOrder) }}
-              onAddLine={addLine}
+              onAddLine={handleAddLine}
             />
           )}
         </section>

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import OpenSeadragon from 'openseadragon'
 import type { LineBox, RegionBox, BoundingBox } from '../../types/ocr'
 import { rawToKoji } from '../../lib/koji'
@@ -15,6 +15,12 @@ interface ImageViewerProps {
   onDeleteLine: (order: number) => void
 }
 
+/** 親から命令的に呼べる API（行追加時の可視領域取得などに使う） */
+export interface ImageViewerHandle {
+  /** 現在ビューに表示中の画像座標系での矩形を返す（未準備なら null） */
+  getVisibleImageBounds(): BoundingBox | null
+}
+
 const REGION_LABEL: Record<number, string> = {
   [LAYOUT_CLASS.OVERALL]: '全体',
   [LAYOUT_CLASS.ILLUSTRATION]: '図版',
@@ -27,9 +33,9 @@ type Handle = 'move' | 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se'
 const HANDLES: Exclude<Handle, 'move'>[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
 const MIN_SIZE = 6
 
-export function ImageViewer({
+export const ImageViewer = forwardRef<ImageViewerHandle, ImageViewerProps>(function ImageViewer({
   dataUrl, lines, regions, showOverlays, selectedOrder, onSelectLine, onUpdateLine, onDeleteLine,
-}: ImageViewerProps) {
+}, ref) {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<OpenSeadragon.Viewer | null>(null)
   const lineElsRef = useRef<Map<number, HTMLDivElement>>(new Map())
@@ -52,6 +58,17 @@ export function ImageViewer({
   useEffect(() => { linesRef.current = lines }, [lines])
   useEffect(() => { showRef.current = showOverlays }, [showOverlays])
   useEffect(() => { selOrderRef.current = selectedOrder }, [selectedOrder])
+
+  // 親から呼び出し可能な API。「行を追加」時の可視領域取得に使う。
+  useImperativeHandle(ref, () => ({
+    getVisibleImageBounds() {
+      const viewer = viewerRef.current
+      const item = viewer?.world.getItemAt(0)
+      if (!viewer || !item) return null
+      const r = item.viewportToImageRectangle(viewer.viewport.getBounds())
+      return { x: r.x, y: r.y, width: r.width, height: r.height }
+    },
+  }), [])
 
   const imgPoint = useCallback((clientX: number, clientY: number) => {
     const viewer = viewerRef.current!
@@ -257,4 +274,4 @@ export function ImageViewer({
       )}
     </div>
   )
-}
+})

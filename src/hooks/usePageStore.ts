@@ -166,16 +166,27 @@ export function usePageStore() {
     setSelectedOrder(target)
   }, [selectedId, selectedOrder, updatePage])
 
-  // 選択画像に新しい行を追加（末尾番号、画像中央に適当なサイズで）。追加した行を選択。
-  const addLine = useCallback(() => {
+  // 選択画像に新しい行を追加（末尾番号）。追加した行を選択。
+  // visibleBounds が渡されればその中央に、サイズも可視領域内に収まるよう調整して配置する
+  // （ImageViewer の現在の OSD viewport から画像座標系で取得）。未指定なら画像全体を使う。
+  const addLine = useCallback((visibleBounds?: BoundingBox) => {
     const page = pagesRef.current.find((p) => p.id === selectedId)
     if (!page) return
     const newOrder = page.lines.reduce((m, l) => Math.max(m, l.readingOrder), 0) + 1
-    const w = Math.max(24, Math.round(page.width * 0.06))
-    const h = Math.round(page.height * 0.6)
+    const visX = visibleBounds?.x ?? 0
+    const visY = visibleBounds?.y ?? 0
+    const visW = visibleBounds?.width ?? page.width
+    const visH = visibleBounds?.height ?? page.height
+    // 幅 = 画像幅の 6%（最小 24px）。可視幅を超えそうなら可視幅の 30% まで縮める。
+    const w = Math.min(Math.max(24, Math.round(page.width * 0.06)), Math.max(24, Math.round(visW * 0.3)))
+    // 高さ = 画像高さの 60%。可視高さの 80% を超えないように上限を設ける。
+    const h = Math.min(Math.round(page.height * 0.6), Math.max(40, Math.round(visH * 0.8)))
+    // 可視領域の中央に置く。画像範囲外にはみ出さないようクランプ。
+    const cx = visX + visW / 2
+    const cy = visY + visH / 2
     const newLine: LineBox = {
-      x: Math.round(page.width / 2 - w / 2),
-      y: Math.round(page.height * 0.2),
+      x: Math.max(0, Math.min(page.width - w, Math.round(cx - w / 2))),
+      y: Math.max(0, Math.min(page.height - h, Math.round(cy - h / 2))),
       width: w, height: h, classId: 1, confidence: 1, readingOrder: newOrder,
     }
     updatePage(page.id, {
