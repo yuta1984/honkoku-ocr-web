@@ -103,15 +103,15 @@ export class LayoutDetector {
     const merged = this.nmsAgnostic(raw, 0.4, 0.6)
 
     // 行の読み方向（縦書きでは y、横書きでは x）に余白を付与。
-    // ONNX 出力の bbox は字形ぴったりに張り付くため、特に縦書きの長軸方向（y）が
-    // 読み始め/読み終わりで字を切ってしまう。長軸方向は ~6%、短軸方向は ~3% を追加。
+    // ONNX 出力の bbox は字形ぴったりに張り付き、訓練アノテーションも本文中央寄りに
+    // タイトに付けられている傾向があるので大きめに：長軸方向は ~10%、短軸方向は ~5%。
     const lines: LineBox[] = []
     for (const d of merged) {
       const w = d.x2 - d.x1
       const h = d.y2 - d.y1
       const vertical = h >= w
-      const padLong = Math.max(30, Math.round((vertical ? h : w) * 0.06))
-      const padShort = Math.max(12, Math.round((vertical ? w : h) * 0.03))
+      const padLong = Math.max(60, Math.round((vertical ? h : w) * 0.10))
+      const padShort = Math.max(20, Math.round((vertical ? w : h) * 0.05))
       const padX = vertical ? padShort : padLong
       const padY = vertical ? padLong : padShort
       const x = Math.max(0, Math.round(d.x1 - padX))
