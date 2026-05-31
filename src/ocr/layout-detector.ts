@@ -83,29 +83,65 @@ export class LayoutDetector {
     const detsData = detsTensor.data as Float32Array
     const numDets = detsTensor.dims[1]
 
-    const lines: LineBox[] = []
+    // 元座標系の bbox を作って、クラス横断 NMS で重複除去する。
+    // mmdeploy エクスポート時の NMS は per-class（max_output_boxes_per_class=200）なので、
+    // 2 クラス(手書き/活字)で同じ行を別クラスとして残しがち。ここで class-agnostic NMS。
+    const raw: RawDet[] = []
     for (let i = 0; i < numDets; i++) {
       const off = i * 5
       const score = detsData[off + 4]
       if (score < confThreshold) continue
-      const x1 = (detsData[off + 0] - meta.padX) / meta.scale
-      const y1 = (detsData[off + 1] - meta.padY) / meta.scale
-      const x2 = (detsData[off + 2] - meta.padX) / meta.scale
-      const y2 = (detsData[off + 3] - meta.padY) / meta.scale
-      const x = Math.max(0, Math.round(x1))
-      const y = Math.max(0, Math.round(y1))
-      const width = Math.min(meta.origW, Math.round(x2)) - x
-      const height = Math.min(meta.origH, Math.round(y2)) - y
+      raw.push({
+        x1: (detsData[off + 0] - meta.padX) / meta.scale,
+        y1: (detsData[off + 1] - meta.padY) / meta.scale,
+        x2: (detsData[off + 2] - meta.padX) / meta.scale,
+        y2: (detsData[off + 3] - meta.padY) / meta.scale,
+        conf: score,
+        classId: LAYOUT_CLASS.HANDWRITTEN,
+      })
+    }
+    const merged = this.nmsAgnostic(raw, 0.4)
+
+    // 行の読み方向（縦書きでは y、横書きでは x）に余白を付与。
+    // ONNX 出力の bbox は字形ぴったりに張り付くため、特に縦書きの長軸方向（y）が
+    // 読み始め/読み終わりで字を切ってしまう。長軸方向は ~3%、短軸方向は ~2% を追加。
+    const lines: LineBox[] = []
+    for (const d of merged) {
+      const w = d.x2 - d.x1
+      const h = d.y2 - d.y1
+      const vertical = h >= w
+      const padLong = Math.max(20, Math.round((vertical ? h : w) * 0.03))
+      const padShort = Math.max(8, Math.round((vertical ? w : h) * 0.02))
+      const padX = vertical ? padShort : padLong
+      const padY = vertical ? padLong : padShort
+      const x = Math.max(0, Math.round(d.x1 - padX))
+      const y = Math.max(0, Math.round(d.y1 - padY))
+      const x2c = Math.min(meta.origW, Math.round(d.x2 + padX))
+      const y2c = Math.min(meta.origH, Math.round(d.y2 + padY))
+      const width = x2c - x
+      const height = y2c - y
       if (width < 6 || height < 6) continue
       lines.push({
         x, y, width, height,
-        confidence: score,
+        confidence: d.conf,
         classId: LAYOUT_CLASS.HANDWRITTEN,
         readingOrder: 0,
       })
     }
-    console.log(`[LayoutDetector] ${lines.length} lines (rtmdet)`)
+    console.log(`[LayoutDetector] ${lines.length} lines (rtmdet, dedup ${raw.length}→${merged.length})`)
     return { lines, regions: [] }
+  }
+
+  /** クラス横断 NMS。conf 降順で見ていき IoU > th を抑制。 */
+  private nmsAgnostic(dets: RawDet[], iouThreshold: number): RawDet[] {
+    const result: RawDet[] = []
+    let cands = [...dets].sort((a, b) => b.conf - a.conf)
+    while (cands.length > 0) {
+      const best = cands.shift()!
+      result.push(best)
+      cands = cands.filter((c) => this.iou(best, c) < iouThreshold)
+    }
+    return result
   }
 
   private preprocessRtmdet(imageData: ImageData): { tensor: OrtType.Tensor; meta: Meta } {
