@@ -100,18 +100,18 @@ export class LayoutDetector {
         classId: LAYOUT_CLASS.HANDWRITTEN,
       })
     }
-    const merged = this.nmsAgnostic(raw, 0.4)
+    const merged = this.nmsAgnostic(raw, 0.4, 0.6)
 
     // 行の読み方向（縦書きでは y、横書きでは x）に余白を付与。
     // ONNX 出力の bbox は字形ぴったりに張り付くため、特に縦書きの長軸方向（y）が
-    // 読み始め/読み終わりで字を切ってしまう。長軸方向は ~3%、短軸方向は ~2% を追加。
+    // 読み始め/読み終わりで字を切ってしまう。長軸方向は ~6%、短軸方向は ~3% を追加。
     const lines: LineBox[] = []
     for (const d of merged) {
       const w = d.x2 - d.x1
       const h = d.y2 - d.y1
       const vertical = h >= w
-      const padLong = Math.max(20, Math.round((vertical ? h : w) * 0.03))
-      const padShort = Math.max(8, Math.round((vertical ? w : h) * 0.02))
+      const padLong = Math.max(30, Math.round((vertical ? h : w) * 0.06))
+      const padShort = Math.max(12, Math.round((vertical ? w : h) * 0.03))
       const padX = vertical ? padShort : padLong
       const padY = vertical ? padLong : padShort
       const x = Math.max(0, Math.round(d.x1 - padX))
@@ -132,16 +132,39 @@ export class LayoutDetector {
     return { lines, regions: [] }
   }
 
-  /** クラス横断 NMS。conf 降順で見ていき IoU > th を抑制。 */
-  private nmsAgnostic(dets: RawDet[], iouThreshold: number): RawDet[] {
+  /**
+   * クラス横断 NMS。IoU だけでなく IoS（intersection over smaller）も用いる。
+   * 通常 NMS（IoU）は「ほぼ同じ大きさで重なる」ケースのみ捕捉するため、
+   * 「小さい box が大きい box に内包される」入れ子ケースを取りこぼす。
+   * IoS = 交わり面積 / 小さい方の面積 が大きいときも suppress する。
+   */
+  private nmsAgnostic(dets: RawDet[], iouThreshold: number, iosThreshold: number): RawDet[] {
     const result: RawDet[] = []
     let cands = [...dets].sort((a, b) => b.conf - a.conf)
     while (cands.length > 0) {
       const best = cands.shift()!
       result.push(best)
-      cands = cands.filter((c) => this.iou(best, c) < iouThreshold)
+      const areaBest = (best.x2 - best.x1) * (best.y2 - best.y1)
+      cands = cands.filter((c) => {
+        const inter = this.interArea(best, c)
+        if (inter === 0) return true
+        const areaC = (c.x2 - c.x1) * (c.y2 - c.y1)
+        const union = areaBest + areaC - inter
+        if (inter / union >= iouThreshold) return false   // 通常 IoU NMS
+        const ios = inter / Math.min(areaBest, areaC)
+        if (ios >= iosThreshold) return false              // 内包ケース
+        return true
+      })
     }
     return result
+  }
+
+  private interArea(a: RawDet, b: RawDet): number {
+    const ix1 = Math.max(a.x1, b.x1)
+    const iy1 = Math.max(a.y1, b.y1)
+    const ix2 = Math.min(a.x2, b.x2)
+    const iy2 = Math.min(a.y2, b.y2)
+    return Math.max(0, ix2 - ix1) * Math.max(0, iy2 - iy1)
   }
 
   private preprocessRtmdet(imageData: ImageData): { tensor: OrtType.Tensor; meta: Meta } {
