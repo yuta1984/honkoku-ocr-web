@@ -1,21 +1,27 @@
 import { useState } from 'react'
 import { clearModelCache } from '../../ocr/model-loader'
-import type { OcrModelVersion } from '../../ocr/model-loader'
+import type { OcrModelVersion, LayoutModelVersion } from '../../ocr/model-loader'
 
 interface SettingsModalProps {
   onClose: () => void
   lang: 'ja' | 'en'
   modelVersion: OcrModelVersion
   onChangeModelVersion: (next: OcrModelVersion) => void
+  layoutVersion: LayoutModelVersion
+  onChangeLayoutVersion: (next: LayoutModelVersion) => void
 }
 
 const OCR_VERSIONS: { value: OcrModelVersion; label: string; descJa: string; descEn: string }[] = [
   { value: 'v11', label: 'v11', descJa: 'ConvNeXt-Base + 拡充データ。返点・送り仮名を改善し平文・ふりがなは維持（推奨）', descEn: 'ConvNeXt-Base + enriched data. Improves kaeriten/okurigana, keeps plain/furigana (recommended)' },
   { value: 'v8', label: 'v8', descJa: 'ConvNeXt-Base。低解像度に強く高精度', descEn: 'ConvNeXt-Base. Robust to low resolution, high accuracy' },
-  { value: 'v7', label: 'v7', descJa: 'ConvNeXt-Small。軽量な従来モデル', descEn: 'ConvNeXt-Small. Lighter legacy model' },
 ]
 
-export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersion }: SettingsModalProps) {
+const LAYOUT_VERSIONS: { value: LayoutModelVersion; label: string; descJa: string; descEn: string }[] = [
+  { value: 'rtmdet', label: 'RTMDet-m', descJa: '2クラス行検出器（手書き/活字）。入力 1024×1024、NMS 内蔵。長行を途中で切らない（推奨）', descEn: 'Two-class line detector (handwritten/print). 1024×1024 input, NMS included. Better at long vertical lines (recommended)' },
+  { value: 'yolo',   label: 'YOLOv8 (koten-layout)', descJa: '従来モデル。5クラス（全体/手書き/活字/図版/印判）を検出', descEn: 'Legacy model. 5 classes (overall/handwritten/typography/illustration/stamp)' },
+]
+
+export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersion, layoutVersion, onChangeLayoutVersion }: SettingsModalProps) {
   const [clearing, setClearing] = useState(false)
   const [cleared, setCleared] = useState(false)
 
@@ -63,6 +69,32 @@ export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersio
                     value={v.value}
                     checked={modelVersion === v.value}
                     onChange={() => onChangeModelVersion(v.value)}
+                  />
+                  <span className="settings-radio-label">
+                    <strong>{v.label}</strong>
+                    <span className="settings-radio-desc">{lang === 'ja' ? v.descJa : v.descEn}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <section className="settings-section">
+            <h3>{lang === 'ja' ? 'レイアウト検出モデル' : 'Layout Detection Model'}</h3>
+            <p className="settings-description">
+              {lang === 'ja'
+                ? '行/領域を検出するレイアウトモデルを切り替えます。切替後はモデルを読み込み直します（未ダウンロードの場合のみ実際の通信が発生）。'
+                : 'Switch the layout (line/region) detection model. The selected model is (re)loaded after switching (network only on first download).'}
+            </p>
+            <div className="settings-radio-group">
+              {LAYOUT_VERSIONS.map((v) => (
+                <label key={v.value} className="settings-radio">
+                  <input
+                    type="radio"
+                    name="layout-version"
+                    value={v.value}
+                    checked={layoutVersion === v.value}
+                    onChange={() => onChangeLayoutVersion(v.value)}
                   />
                   <span className="settings-radio-label">
                     <strong>{v.label}</strong>

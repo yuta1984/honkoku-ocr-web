@@ -186,6 +186,7 @@
 
 .sidebar-batch { padding: 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
 .sidebar-batch-title { font-size: 0.75rem; color: var(--muted); margin-bottom: 2px; }
+.sidebar-step-title { font-size: 0.85rem; font-weight: 600; color: var(--accent-strong); margin-bottom: 2px; }
 
 /* ----- 中央（画像ビューア。右パネル幅はドラッグで調整） ----- */
 .center {
@@ -214,8 +215,18 @@
   background: var(--panel);
   border-bottom: 1px solid var(--line);
 }
+.toolbar-container { flex: 0 0 auto; display: flex; flex-direction: column; }
 .toolbar-left { display: flex; gap: 8px; }
 .toolbar-info { font-size: 0.82rem; color: var(--muted); }
+.toolbar-guide {
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  color: var(--accent-strong);
+  background: #e3f2fd;
+  border-bottom: 1px solid var(--line);
+  line-height: 1.45;
+}
+.toolbar-guide strong { color: var(--accent-strong); font-weight: 600; }
 
 .jobbar {
   flex: 0 0 auto;

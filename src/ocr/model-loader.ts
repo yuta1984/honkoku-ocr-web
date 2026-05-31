@@ -24,16 +24,30 @@ const modelUrl = (file: string) => (MODEL_BASE_URL ? `${MODEL_BASE_URL}/${file}`
 //   （text-recognizer.ts の vocabUrl 参照）。混用すると全文字が化ける。
 export type OcrModelVersion = 'v7' | 'v8' | 'v11'
 export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v11'
-const LAYOUT_FILE = 'koten-layout-best.onnx' // 5クラス YOLO(全体/手書き/活字/図版/印判)。手書き/活字=行box
+
+// レイアウト検出モデルの版。設定で切替可能（localStorage 永続化、useLayoutVersion）。
+//   yolo   = koten-layout-best.onnx               (5クラス YOLOv8。手書き/活字=行、図版/印判=領域)
+//   rtmdet = koten-layout-rtmdet-m-int8.onnx      (RTMDet-m、2クラス[手書き/活字]、入力1024×1024、NMS内蔵、int8 量子化 28MB)
+export type LayoutModelVersion = 'rtmdet' | 'yolo'
+export const DEFAULT_LAYOUT_VERSION: LayoutModelVersion = 'rtmdet'
+
+const LAYOUT_FILES: Record<LayoutModelVersion, string> = {
+  yolo: 'koten-layout-best.onnx',
+  rtmdet: 'koten-layout-rtmdet-m-int8.onnx',
+}
 const OCR_MODEL_FILES: Record<OcrModelVersion, { encoder: string; decoder: string }> = {
   v7: { encoder: 'kuzushiji-v7-encoder-int8.onnx', decoder: 'kuzushiji-v7-decoder-int8.onnx' }, // ConvNeXt-Small
   v8: { encoder: 'kuzushiji-v8-encoder-int8.onnx', decoder: 'kuzushiji-v8-decoder-int8.onnx' }, // ConvNeXt-Base(解像度ロバスト)
   v11: { encoder: 'kuzushiji-v11-encoder-int8.onnx', decoder: 'kuzushiji-v11-decoder-int8.onnx' }, // ConvNeXt-Base + クリーンenrich
 }
 
-// modelType + version → 配信URL と キャッシュキー。OCR は version 別キーで両方キャッシュ可（切替が高速）。
-function resolveModel(modelType: string, version: OcrModelVersion): { url: string; cacheKey: string } {
-  if (modelType === 'layout') return { url: modelUrl(LAYOUT_FILE), cacheKey: 'layout' }
+// modelType + version → 配信URL と キャッシュキー。OCR/レイアウトとも version 別キーで複数キャッシュ可（切替が高速）。
+function resolveModel(
+  modelType: string,
+  version: OcrModelVersion,
+  layoutVersion: LayoutModelVersion,
+): { url: string; cacheKey: string } {
+  if (modelType === 'layout') return { url: modelUrl(LAYOUT_FILES[layoutVersion]), cacheKey: `layout@${layoutVersion}` }
   if (modelType === 'ocrEncoder') return { url: modelUrl(OCR_MODEL_FILES[version].encoder), cacheKey: `ocrEncoder@${version}` }
   if (modelType === 'ocrDecoder') return { url: modelUrl(OCR_MODEL_FILES[version].decoder), cacheKey: `ocrDecoder@${version}` }
   throw new Error(`Unknown model type: ${modelType}`)
@@ -150,9 +164,10 @@ async function downloadWithProgress(
 export async function loadModel(
   modelType: string,
   onProgress?: (progress: number) => void,
-  version: OcrModelVersion = DEFAULT_OCR_VERSION
+  version: OcrModelVersion = DEFAULT_OCR_VERSION,
+  layoutVersion: LayoutModelVersion = DEFAULT_LAYOUT_VERSION,
 ): Promise<ArrayBuffer> {
-  const { url, cacheKey } = resolveModel(modelType, version)
+  const { url, cacheKey } = resolveModel(modelType, version, layoutVersion)
 
   const cached = await getModelFromCache(cacheKey)
   if (cached) {

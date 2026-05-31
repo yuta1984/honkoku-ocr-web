@@ -5,8 +5,9 @@ import { DEFAULT_OCR_VERSION } from '../ocr/model-loader'
 const STORAGE_KEY = 'honkoku_model_version'
 
 function getStored(): OcrModelVersion {
+  // v7 は UI から廃止したため、localStorage に残っていても DEFAULT に migrate する
   const v = localStorage.getItem(STORAGE_KEY)
-  return v === 'v7' || v === 'v8' || v === 'v11' ? v : DEFAULT_OCR_VERSION
+  return v === 'v8' || v === 'v11' ? v : DEFAULT_OCR_VERSION
 }
 
 /**

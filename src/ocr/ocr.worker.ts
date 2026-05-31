@@ -10,8 +10,8 @@
  */
 
 import './onnx-config'
-import { loadModel, DEFAULT_OCR_VERSION } from './model-loader'
-import type { OcrModelVersion } from './model-loader'
+import { loadModel, DEFAULT_OCR_VERSION, DEFAULT_LAYOUT_VERSION } from './model-loader'
+import type { OcrModelVersion, LayoutModelVersion } from './model-loader'
 import { LayoutDetector } from './layout-detector'
 import { ReadingOrderProcessor } from './reading-order'
 import type { WorkerInMessage, WorkerOutMessage } from '../types/worker'
@@ -22,6 +22,8 @@ class LayoutWorker {
   private initialized = false
   // OCR モデルの版。INITIALIZE で受け取り、認識ワーカーと同じ版をキャッシュさせる。
   version: OcrModelVersion = DEFAULT_OCR_VERSION
+  // レイアウト検出モデルの版 (rtmdet / yolo)。INITIALIZE で受け取る。
+  layoutVersion: LayoutModelVersion = DEFAULT_LAYOUT_VERSION
 
   private post(message: WorkerOutMessage) {
     self.postMessage(message)
@@ -41,16 +43,16 @@ class LayoutWorker {
         })
       }
 
-      // 3 モデルを並列ダウンロード（IndexedDB へキャッシュ）。OCR enc-dec は version 別。
+      // 3 モデルを並列ダウンロード（IndexedDB へキャッシュ）。OCR/layout とも version 別。
       const [layoutData] = await Promise.all([
-        loadModel('layout', (p) => { progresses.layout = p; report() }),
-        loadModel('ocrEncoder', (p) => { progresses.encoder = p; report() }, this.version),
-        loadModel('ocrDecoder', (p) => { progresses.decoder = p; report() }, this.version),
+        loadModel('layout', (p) => { progresses.layout = p; report() }, this.version, this.layoutVersion),
+        loadModel('ocrEncoder', (p) => { progresses.encoder = p; report() }, this.version, this.layoutVersion),
+        loadModel('ocrDecoder', (p) => { progresses.decoder = p; report() }, this.version, this.layoutVersion),
       ])
 
       this.post({ type: 'INIT_PROGRESS', progress: 0.98, message: 'レイアウトモデルを準備中...' })
       this.detector = new LayoutDetector()
-      await this.detector.initialize(layoutData)
+      await this.detector.initialize(layoutData, this.layoutVersion)
 
       this.initialized = true
       this.post({ type: 'INIT_DONE' })
@@ -78,6 +80,7 @@ self.onmessage = async (event: MessageEvent<WorkerInMessage>) => {
   switch (msg.type) {
     case 'INITIALIZE':
       worker.version = msg.version
+      worker.layoutVersion = msg.layoutVersion
       await worker.initialize()
       break
     case 'LAYOUT_DETECT':

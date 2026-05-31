@@ -96,6 +96,9 @@ export function PageSidebar(p: PageSidebarProps) {
         </div>
       )}
       <div className="sidebar-actions">
+        <div className="sidebar-step-title">
+          {lang === 'ja' ? '① 画像を追加する' : '① Add images'}
+        </div>
         <button className="btn btn-primary btn-block" onClick={() => fileInputRef.current?.click()} disabled={p.isLoadingFiles}>
           {lang === 'ja' ? '＋ 画像を追加' : '＋ Add images'}
         </button>

@@ -4,6 +4,7 @@ import { useLang } from './hooks/useLang'
 import { useFileDrop } from './hooks/useFileDrop'
 import { useMediaQuery } from './hooks/useMediaQuery'
 import { useModelVersion } from './hooks/useModelVersion'
+import { useLayoutVersion } from './hooks/useLayoutVersion'
 import { useOCRWorker } from './hooks/useOCRWorker'
 import { usePageStore } from './hooks/usePageStore'
 import { Header } from './ui/layout/Header'
@@ -27,7 +28,8 @@ export default function App() {
   const { lang, toggleLanguage } = useLang()
   const isMobile = useMediaQuery('(max-width: 768px)')
   const { modelVersion, setModelVersion } = useModelVersion()
-  const { isReady, modelState, detectLayout, recognizeLines } = useOCRWorker(modelVersion)
+  const { layoutVersion, setLayoutVersion } = useLayoutVersion()
+  const { isReady, modelState, detectLayout, recognizeLines } = useOCRWorker(modelVersion, layoutVersion)
   const store = usePageStore()
   const {
     pages, selectedId, selectedPage, selectedOrder, setSelectedOrder, selectedDataUrl,
@@ -294,8 +296,8 @@ export default function App() {
 
                 <p>
                   {isMobile
-                    ? (lang === 'ja' ? 'タップして画像を追加（カメラ・ライブラリ・ファイル）' : 'Tap to add image (camera / library / file)')
-                    : (lang === 'ja' ? '画像をここにドラッグ&ドロップ、または左の「画像を追加」から読み込んでください' : 'Drag & drop images here, or use “Add images” on the left')}
+                    ? (lang === 'ja' ? '① タップして画像を追加（カメラ・ライブラリ・ファイル）' : '① Tap to add image (camera / library / file)')
+                    : (lang === 'ja' ? '① 画像をここにドラッグ&ドロップ、または左の「画像を追加」から読み込んでください' : '① Drag & drop images here, or use “Add images” on the left')}
                 </p>
                 <p className="placeholder-sub">{lang === 'ja' ? 'JPG / PNG / TIFF / HEIC / PDF・Ctrl+V で貼り付け可' : 'JPG / PNG / TIFF / HEIC / PDF · Ctrl+V to paste'}</p>
               </div>
@@ -361,6 +363,8 @@ export default function App() {
           lang={lang}
           modelVersion={modelVersion}
           onChangeModelVersion={setModelVersion}
+          layoutVersion={layoutVersion}
+          onChangeLayoutVersion={setLayoutVersion}
         />
       )}
     </div>

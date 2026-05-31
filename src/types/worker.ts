@@ -1,10 +1,10 @@
 /** OCR Worker（レイアウト検出担当・単一インスタンス）のメッセージ */
 
 import type { LineBox, RegionBox, ModelProgress } from './ocr'
-import type { OcrModelVersion } from '../ocr/model-loader'
+import type { OcrModelVersion, LayoutModelVersion } from '../ocr/model-loader'
 
 export type WorkerInMessage =
-  | { type: 'INITIALIZE'; version: OcrModelVersion }
+  | { type: 'INITIALIZE'; version: OcrModelVersion; layoutVersion: LayoutModelVersion }
   | { type: 'LAYOUT_DETECT'; id: string; imageData: ImageData }
   | { type: 'TERMINATE' }
 
