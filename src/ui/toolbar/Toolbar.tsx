@@ -29,8 +29,8 @@ function guideMessage(selectedPage: PageItem | null, lang: Language): React.Reac
   }
   if (selectedPage.status === 'layout') {
     return ja
-      ? (<>行を移動したり、追加・削除して調整しましょう。完了したら「<strong>OCR実行</strong>」</>)
-      : (<>Move, add, or delete line boxes if needed. Then click <strong>OCR</strong>.</>)
+      ? (<>レイアウト認識が完了しました！行を移動・追加・削除して調整しましょう。行を選択して左右キーで読み順も入替え可能です。準備ができたら「<strong>OCR実行</strong>」</>)
+      : (<>Layout detection complete! Move, add, or delete lines as needed. Select a line and use ←/→ keys to swap reading order. When ready, click <strong>OCR</strong>.</>)
   }
   if (selectedPage.status === 'ocr') {
     return ja
