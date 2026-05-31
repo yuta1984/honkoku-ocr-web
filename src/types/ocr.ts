@@ -73,6 +73,8 @@ export interface ProcessedImage {
 
 // --- 進捗表示 -------------------------------------------------------------
 
+// v7/v8/v11 は decoder 単一、v12 は prefill+step 2ファイル(KV cache)。
+// ステータスバーは「decoder」として 1 つにまとめて表示するため、v12 では prefill/step の平均をここに入れる。
 export interface ModelProgress {
   layout: number
   encoder: number

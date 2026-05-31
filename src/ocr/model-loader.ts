@@ -17,39 +17,70 @@ const MODEL_BASE_URL = (import.meta.env.VITE_MODEL_BASE_URL as string | undefine
 // import.meta.env.BASE_URL を前置。worker から fetch しても絶対パスで正しく解決される）。
 const modelUrl = (file: string) => (MODEL_BASE_URL ? `${MODEL_BASE_URL}/${file}` : `${import.meta.env.BASE_URL}models/${file}`)
 
-// OCR enc-dec モデルは v7/v8/v11 を切替可能（layout YOLO は共通）。
-// 既定は v11(v8レシピ + クリーンenrich。返点・送り仮名を改善し平文・ふりがなは維持。<rt2>過剰付与は
-// text-recognizer の decode 後処理で除去)。v8(ConvNeXt-Base)/v7(ConvNeXt-Small)は設定で選択可。
+// OCR enc-dec モデルは v7/v8/v11/v12 を切替可能（layout YOLO は共通）。
+// 既定は v12(192×1536 高解像度 + KOJI_NO_RT2 + KV cache decoder)。
+// v11 = v8レシピ + クリーンenrich(返点・送り仮名 F1 改善, <rt2> 過剰は decode 後処理で除去)。
+// v8/v7 は設定 UI からは廃止(localStorage に残っていれば DEFAULT へ migrate)。
 // ※ 版ごとに token id→文字 の並びが大きく異なるため、版に対応する vocab を読む必要がある
 //   （text-recognizer.ts の vocabUrl 参照）。混用すると全文字が化ける。
-export type OcrModelVersion = 'v7' | 'v8' | 'v11'
-export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v11'
+// ※ v12 だけ decoder が prefill+step の2ファイル(KVキャッシュ対応で5–10×高速化)。
+//   v7/v8/v11 は decoder 単一(use_cache=false で都度全シーケンス入力)。
+export type OcrModelVersion = 'v7' | 'v8' | 'v11' | 'v12'
+export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v12'
 
 // レイアウト検出モデルの版。設定で切替可能（localStorage 永続化、useLayoutVersion）。
-//   yolo   = koten-layout-best.onnx               (5クラス YOLOv8。手書き/活字=行、図版/印判=領域)
-//   rtmdet = koten-layout-rtmdet-m-int8.onnx      (RTMDet-m、2クラス[手書き/活字]、入力1024×1024、NMS内蔵、int8 量子化 28MB)
+//   yolo   = koten-layout-best.onnx       (5クラス YOLOv8。手書き/活字=行、図版/印判=領域。本システムオリジナル)
+//   rtmdet = rtmdet-s-1280x1280.onnx      (NDL古典籍OCR-Lite 附属の単一クラス行検出器、入力1024×1024、NMS内蔵)
 export type LayoutModelVersion = 'rtmdet' | 'yolo'
 export const DEFAULT_LAYOUT_VERSION: LayoutModelVersion = 'rtmdet'
 
 const LAYOUT_FILES: Record<LayoutModelVersion, string> = {
   yolo: 'koten-layout-best.onnx',
-  rtmdet: 'koten-layout-rtmdet-m-int8.onnx',
+  rtmdet: 'rtmdet-s-1280x1280.onnx',
 }
-const OCR_MODEL_FILES: Record<OcrModelVersion, { encoder: string; decoder: string }> = {
-  v7: { encoder: 'kuzushiji-v7-encoder-int8.onnx', decoder: 'kuzushiji-v7-decoder-int8.onnx' }, // ConvNeXt-Small
-  v8: { encoder: 'kuzushiji-v8-encoder-int8.onnx', decoder: 'kuzushiji-v8-decoder-int8.onnx' }, // ConvNeXt-Base(解像度ロバスト)
-  v11: { encoder: 'kuzushiji-v11-encoder-int8.onnx', decoder: 'kuzushiji-v11-decoder-int8.onnx' }, // ConvNeXt-Base + クリーンenrich
+// v7/v8/v11 は単一 decoder、v12 は KV cache のため prefill + step の2分割。
+// 種別ごとにファイル名を別定義し、resolveModel で版に応じて選ぶ。
+type SingleDecoderFiles = { encoder: string; decoder: string }
+type SplitDecoderFiles = { encoder: string; decoderPrefill: string; decoderStep: string }
+type OcrModelFiles = SingleDecoderFiles | SplitDecoderFiles
+const OCR_MODEL_FILES: Record<OcrModelVersion, OcrModelFiles> = {
+  v7:  { encoder: 'kuzushiji-v7-encoder-int8.onnx',  decoder: 'kuzushiji-v7-decoder-int8.onnx' },  // ConvNeXt-Small
+  v8:  { encoder: 'kuzushiji-v8-encoder-int8.onnx',  decoder: 'kuzushiji-v8-decoder-int8.onnx' },  // ConvNeXt-Base
+  v11: { encoder: 'kuzushiji-v11-encoder-int8.onnx', decoder: 'kuzushiji-v11-decoder-int8.onnx' }, // ConvNeXt-Base + enrich
+  // v12: 192×1536 + KOJI_NO_RT2 + KV cache。decoder は prefill(初回CLSでKV構築) + step(1 token/iter) の2本立て。
+  v12: {
+    encoder: 'kuzushiji-v12-encoder-int8.onnx',
+    decoderPrefill: 'kuzushiji-v12-decoder-prefill-int8.onnx',
+    decoderStep:    'kuzushiji-v12-decoder-step-int8.onnx',
+  },
 }
+export const HAS_KV_CACHE_DECODER = (version: OcrModelVersion): version is 'v12' => version === 'v12'
 
 // modelType + version → 配信URL と キャッシュキー。OCR/レイアウトとも version 別キーで複数キャッシュ可（切替が高速）。
+// レイアウトの cacheKey にはファイル名を含める：版内で配信ファイルを差し替えた場合に自動でキャッシュ invalidate するため。
 function resolveModel(
   modelType: string,
   version: OcrModelVersion,
   layoutVersion: LayoutModelVersion,
 ): { url: string; cacheKey: string } {
-  if (modelType === 'layout') return { url: modelUrl(LAYOUT_FILES[layoutVersion]), cacheKey: `layout@${layoutVersion}` }
-  if (modelType === 'ocrEncoder') return { url: modelUrl(OCR_MODEL_FILES[version].encoder), cacheKey: `ocrEncoder@${version}` }
-  if (modelType === 'ocrDecoder') return { url: modelUrl(OCR_MODEL_FILES[version].decoder), cacheKey: `ocrDecoder@${version}` }
+  if (modelType === 'layout') {
+    const file = LAYOUT_FILES[layoutVersion]
+    return { url: modelUrl(file), cacheKey: `layout@${layoutVersion}@${file}` }
+  }
+  const files = OCR_MODEL_FILES[version]
+  if (modelType === 'ocrEncoder') return { url: modelUrl(files.encoder), cacheKey: `ocrEncoder@${version}` }
+  if (modelType === 'ocrDecoder') {
+    if (!('decoder' in files)) throw new Error(`${version} has no single decoder (use ocrDecoderPrefill/Step)`)
+    return { url: modelUrl(files.decoder), cacheKey: `ocrDecoder@${version}` }
+  }
+  if (modelType === 'ocrDecoderPrefill') {
+    if (!('decoderPrefill' in files)) throw new Error(`${version} has no prefill decoder`)
+    return { url: modelUrl(files.decoderPrefill), cacheKey: `ocrDecoderPrefill@${version}` }
+  }
+  if (modelType === 'ocrDecoderStep') {
+    if (!('decoderStep' in files)) throw new Error(`${version} has no step decoder`)
+    return { url: modelUrl(files.decoderStep), cacheKey: `ocrDecoderStep@${version}` }
+  }
   throw new Error(`Unknown model type: ${modelType}`)
 }
 

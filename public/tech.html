@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>技術情報 | みんなで翻刻OCR</title>
-<meta name="description" content="みんなで翻刻OCRの技術情報。ConvNeXt + RoBERTa による Vision-Encoder-Decoder、120万行・5,700万字のデータセット、ふりがな・返り点・送り仮名・割書の構造認識、所蔵機関別 CER 評価まで。" />
+<meta name="description" content="みんなで翻刻OCRの技術情報。ConvNeXt + RoBERTa による Vision-Encoder-Decoder（v12: 192×1536・KVキャッシュ）、120万行・5,700万字のデータセット、ふりがな・返り点・送り仮名・割書の構造認識、所蔵機関別 CER 評価まで。" />
 <meta property="og:title" content="みんなで翻刻OCR 技術情報" />
 <meta property="og:description" content="モデル構成・学習・評価指標を含む、みんなで翻刻OCRの技術詳細。" />
 <meta property="og:type" content="article" />
@@ -42,6 +42,7 @@
   .hero { display: flex; justify-content: center; padding: 16px 0 24px; }
   .hero img { height: 160px; width: auto; }
   @media (max-width: 600px) { .hero img { height: 120px; } }
+  .doc-meta { color: var(--muted); font-size: 0.85rem; margin: -8px 0 22px; }
   figure.fig { margin: 20px 0 24px; text-align: center; }
   figure.fig img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
   figure.fig figcaption { margin-top: 8px; font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
@@ -80,6 +81,7 @@
 <article id="ja" lang="ja">
 <div class="hero"><img src="./soramaru/11_analyse.png" alt="" /></div>
 <h1>技術情報</h1>
+<p class="doc-meta"><time datetime="2026-05-31">2026年5月31日</time> 執筆（v12 対応版）</p>
 
 <p>「みんなで翻刻OCR」は、くずし字で書かれた古典籍の画像から、本文の翻刻に加え、ふりがな・送り仮名・返り点・割書（双行注記）といった<strong>注釈構造を含む電子テキスト</strong>を一括して生成するOCRシステムです。出力は単純な文字列ではなく、原文に備わる注釈関係をタグで保持した構造化テキストとなっており、後段の組版表示・検索・二次利用に適した形式になっています。以下、データセット・前処理・モデル構成・学習・評価・推論時の工夫について順を追って述べます。</p>
 
@@ -91,11 +93,11 @@
 <p>本研究で構築したデータセットは、<strong>近日中にオープンライセンスで公開予定</strong>です。コミュニティが学術用途・商用用途いずれにも活用できる形での提供を予定しており、詳細は本リポジトリで追って告知します。</p>
 
 <h2>データ前処理</h2>
-<p>翻刻文には「みんなで翻刻」独自の記法が用いられています。例えば「漢字（かんじ）」や「《振り仮名：漢字｜かんじ》」でふりがな、「￣ニ」や「［ニ］」で送り仮名、「＿レ」や「｛レ｝」で返り点、「《割書：右｜左》」で割書を表現するものです。学習に先立ち、これらをすべて、<code>&lt;ruby&gt;</code> <code>&lt;rt&gt;</code> <code>&lt;OKURI&gt;</code> <code>&lt;KAERI&gt;</code> <code>&lt;WARI&gt;</code> といった<strong>学習用の特殊トークンへ正規化</strong>します。さらに、翻刻者によって表記が揺れがちな仮名（同じ助詞が資料ごとに「ニ」と「に」で書かれるなど）を統一するため、<strong>孤立した1字のカタカナをひらがなへ畳み込む</strong>処理や、kyujipy の 464 字対応表に基づく旧字体→新字体への統一処理を加えています。書物ごと・翻刻者ごとの表記揺れを抑え、文字認識本来の難しさだけが学習信号として残るようにする狙いです。</p>
+<p>翻刻文には<a href="https://www.wiki.honkoku.org/doku.php?id=howto_markup" target="_blank" rel="noopener">「みんなで翻刻」独自の記法</a>が用いられています。例えば「漢字（かんじ）」や「《振り仮名：漢字｜かんじ》」でふりがな、「￣ニ」や「［ニ］」で送り仮名、「＿レ」や「｛レ｝」で返り点、「《割書：右｜左》」で割書を表現するものです。学習に先立ち、これらをすべて、<code>&lt;ruby&gt;</code> <code>&lt;rt&gt;</code> <code>&lt;OKURI&gt;</code> <code>&lt;KAERI&gt;</code> <code>&lt;WARI&gt;</code> といった<strong>学習用の特殊トークンへ正規化</strong>します。さらに、翻刻者によって表記が揺れがちな仮名（同じ助詞が資料ごとに「ニ」と「に」で書かれるなど）を統一するため、<strong>孤立した1字のカタカナをひらがなへ畳み込む</strong>処理や、kyujipy の 464 字対応表に基づく旧字体→新字体への統一処理を加えています。書物ごと・翻刻者ごとの表記揺れを抑え、文字認識本来の難しさだけが学習信号として残るようにする狙いです。なお、漢字の左側にもう一つ仮名が振られる二重ルビ（<code>&lt;rt2&gt;</code>）は、教師データ側でも実出現が非常に稀なうえ、モデルが過剰に発火しがちな構造であったため、現行版では<strong>前処理の段階で除外し、語彙にも残しません</strong>。</p>
 
 <h2>モデル構成</h2>
 <p>行認識モデルは、画像から構造化文字列を生成する<strong>Vision-Encoder-Decoder 型のニューラルネットワーク</strong>で、HuggingFace の <code>VisionEncoderDecoderModel</code> 枠組みを基盤に実装しています。</p>
-<p>エンコーダには、画像認識で標準的に用いられる畳み込みネットワークである<strong>ConvNeXt</strong> の Base 規模（パラメータ約 88M、ImageNet-22k および 1k で事前学習済み）を採用しました。縦書きの 1 行画像を 90° 回転して横長化したうえで、高さ 128px・幅最大 1024px にアスペクト比保持でリサイズして入力します。内部の累積ストライドが 32 なので、最終段で<strong>縦 4×横 32 の特徴マップ</strong>（1024 次元のベクトルが計 128 個並んだもの）が得られます。これに対し、<strong>「行内のどの位置（縦・横のどのマス）の特徴か」を示す学習可能な 2 次元位置埋め込み</strong>を独自に追加しました（行方向 8 マス分、列方向 40 マス分の埋め込みを用意して該当位置を加算し、LayerNorm を適用）。縦書き行を横長化しているため、横軸が読み方向に対応します。位置情報をエンコーダ側で明示的に注入することで、長い行でもデコーダのクロスアテンションが行末まで安定して走査できるようにしています。</p>
+<p>エンコーダには、画像認識で標準的に用いられる畳み込みネットワークである<strong>ConvNeXt</strong> の Base 規模（パラメータ約 88M、ImageNet-22k および 1k で事前学習済み）を採用しました。縦書きの 1 行画像を 90° 回転して横長化したうえで、<strong>高さ 192px・幅最大 1536px</strong>（縦横比 8:1 を維持）にアスペクト比保持でリサイズして入力します。内部の累積ストライドが 32 なので、最終段で<strong>縦 6×横 48 の特徴マップ</strong>（1024 次元のベクトルが計 288 個並んだもの）が得られます。これに対し、<strong>「行内のどの位置（縦・横のどのマス）の特徴か」を示す学習可能な 2 次元位置埋め込み</strong>を独自に追加しました（行方向 8 マス分、列方向 56 マス分の埋め込みを用意して該当位置を加算し、LayerNorm を適用）。縦書き行を横長化しているため、横軸が読み方向に対応します。位置情報をエンコーダ側で明示的に注入することで、長い行でもデコーダのクロスアテンションが行末まで安定して走査できるようにしています。</p>
 <p>デコーダには <strong>RoBERTa</strong> をベースとした小型 Transformer（6 層、隠れ次元 512、ヘッド数 8）を用いました。これは<strong>みんなで翻刻の翻刻文 約 5,700 万字を独自コーパスとして整備したうえで、MLM（Masked Language Model）目的で本研究にて事前学習した RoBERTa</strong> であり、すなわち本タスクのドメインに最初から最適化された言語モデルを起点としています。これを OCR タスクへ転用し、クロスアテンション部分は新規に学習させました。文頭トークン <code>&lt;CLS&gt;</code> から文末トークン <code>&lt;SEP&gt;</code> まで、1 トークンずつ次を予測する自己回帰生成です。語彙はコーパス中の頻出上位 5,000 文字を採用した<strong>単文字（character-level）トークナイザ</strong>で、本文文字に加えて<strong>ふりがな・返り点・送り仮名・割書を表す 11 種類の特殊トークンを同居</strong>させています。この設計により、文字認識と注釈付与を<strong>ひとつの生成過程で同時に</strong>行えるのが本研究の特徴です。</p>
 <figure class="fig">
   <img src="./figures/model-architecture.svg" alt="みんなで翻刻OCRのモデル構成図" />
@@ -103,57 +105,58 @@
 </figure>
 
 <h2>学習</h2>
-<p>最適化器は AdamW を用い、(1) 新規初期化部（2D 位置埋め込みとエンコーダ・デコーダ間射影層）、(2) エンコーダ本体、(3) デコーダの 3 群に学習率を分けて与えました（順に 3×10⁻⁴、4×10⁻⁵、5×10⁻⁶）。混合精度（bfloat16 autocast）で、有効バッチサイズ 64・約 85,000 ステップ（おおむね 5 エポック）を、単機の NVIDIA A100 で学習しました。</p>
-<p>損失関数は、ラベルスムージング 0.1 付きのクロスエントロピーに、<strong>構造トークンへの重み 2.0</strong> を加えた重み付き CE 損失を用いています。出現頻度の低い返り点と送り仮名はそのままでは学習信号が弱いため、これらを含む行を学習ストリーム上で<strong>2 倍にサンプリング</strong>しました。データ拡張としては albumentations による弾性歪み・形態学的変換（線の太さ揺らぎ）・ガウシアンノイズ・解像度低下・JPEG 圧縮劣化などをランダムに適用し、撮影条件や紙の状態の違いに頑健なモデルを目指しています。</p>
+<p>最適化器は AdamW を用い、新規初期化部（2D 位置埋め込み・エンコーダ／デコーダ間射影層・クロスアテンション）に高学習率 1×10⁻³、エンコーダ本体および事前学習済みデコーダ本体に低学習率 5×10⁻⁵ という 2 群構成としました。混合精度（bfloat16 autocast）で、有効バッチサイズ 64・約 85,000 ステップ（おおむね 5 エポック）を、単機の NVIDIA A100 で学習しています。入力解像度を 128×1024 から 192×1536 に引き上げた分メモリ消費が約 2 倍となるため、ミニバッチを半分にして勾配累積を 2 倍することで実効バッチ数を維持しています。</p>
+<p>損失関数は、ラベルスムージング 0.1 付きのクロスエントロピーに、<strong>構造トークンへの重み 2.0</strong> を加えた重み付き CE 損失を用いています。さらに、行末の <code>&lt;SEP&gt;</code> がときに早期に発火して本文を切り詰める失敗に対し、<strong>非 SEP 位置で SEP 確率が高いほどペナルティを与える追加正則化項</strong>（フォーカル風、係数 0.5）を導入しました。出現頻度の低い返り点と送り仮名はそのままでは学習信号が弱いため、これらを含む行を学習ストリーム上でそれぞれ 2.0 倍・1.5 倍にオーバーサンプリングしています。データ拡張としては albumentations による弾性歪み・形態学的変換（線の太さ揺らぎ）・ガウシアンノイズ・解像度低下・JPEG 圧縮劣化などをランダムに適用し、撮影条件や紙の状態の違いに頑健なモデルを目指しています。</p>
 
 <h2>評価</h2>
-<p>書物単位で分割したテスト集合（約 <strong>62,000 行</strong>）に対し、かな表記の揺れを正規化したうえで評価したところ、<strong>本文の文字単位正答率はおよそ 90%</strong> でした。注釈に関する指標は、ふりがなを「どの漢字に付けるか」の判定で約 87%、「読みの内容まで含めた一致」で約 78%、返り点で約 82%、送り仮名で約 61%（いずれも F1）の水準で再現できています。</p>
+<p>書物単位で分割したテスト集合（約 <strong>62,000 行</strong>）に対し、かな表記の揺れを正規化したうえで評価したところ、<strong>本文の文字単位正答率はおよそ 91%</strong>（plain micro CER 0.094）でした。前世代である v11 では正答率 約 90%（CER 0.099）であり、入力解像度の引き上げ（128×1024 → 192×1536）で <strong>誤り率を約 5% 削減</strong>しています。注釈に関する指標も、ふりがなを「どの漢字に付けるか」の判定で約 88%、「読みの内容まで含めた一致」で約 76%、返り点で約 74%、送り仮名で約 54%、割書で約 40%（いずれも F1）の水準で再現できています。</p>
 <p>なお本研究では、構造トークンの評価には、領域内の文字列を連結して編集距離を取る<strong>領域 CER</strong> ではなく、<strong>トークンの多重集合一致による F1</strong> を用いるべきであるという方法論上の知見を得ました。領域 CER は、漢文の返り点が密に並ぶ行で 1 か所のずれが指標全体を大きく歪めるなど、構造評価では誤解を生む振る舞いを示します。F1 は順序非依存で外れ値にも頑健で、より実態に即した値を返します。</p>
 <p>注釈構造ごとの Precision / Recall / F1 は次のとおりです（kana-fold 統一、<code>&lt;rt2&gt;</code> 除去後＝デプロイ相当）。</p>
 <div class="table-wrap"><table>
 <thead><tr><th>構造</th><th>項目の定義</th><th class="r">gold</th><th class="r">P</th><th class="r">R</th><th class="r">F1</th></tr></thead>
 <tbody>
-<tr><td>ふりがな</td><td>(漢字, 読み) ペアの完全一致</td><td class="r">28,327</td><td class="r">0.796</td><td class="r">0.766</td><td class="r"><strong>0.781</strong></td></tr>
-<tr><td>送り仮名</td><td><code>&lt;OKURI&gt;</code> 中身トークンの集合一致</td><td class="r">1,081</td><td class="r">0.586</td><td class="r">0.626</td><td class="r"><strong>0.605</strong></td></tr>
-<tr><td>返り点</td><td><code>&lt;KAERI&gt;</code> 中身トークンの集合一致（＿ 記法を統一）</td><td class="r">3,236</td><td class="r">0.861</td><td class="r">0.788</td><td class="r"><strong>0.823</strong></td></tr>
-<tr><td>割書</td><td>span（右列＋区切り＋左列）の完全一致</td><td class="r">1,956</td><td class="r">0.354</td><td class="r">0.340</td><td class="r"><strong>0.347</strong></td></tr>
+<tr><td>ふりがな</td><td>(漢字, 読み) ペアの完全一致</td><td class="r">28,217</td><td class="r">0.783</td><td class="r">0.731</td><td class="r"><strong>0.756</strong></td></tr>
+<tr><td>送り仮名</td><td><code>&lt;OKURI&gt;</code> 内文字列の完全一致</td><td class="r">1,081</td><td class="r">0.602</td><td class="r">0.482</td><td class="r"><strong>0.535</strong></td></tr>
+<tr><td>返り点</td><td><code>&lt;KAERI&gt;</code> 内文字列の完全一致（＿ 記法も統一）</td><td class="r">2,180</td><td class="r">0.780</td><td class="r">0.698</td><td class="r"><strong>0.737</strong></td></tr>
+<tr><td>割書</td><td>span（右列＋区切り＋左列）の完全一致</td><td class="r">1,956</td><td class="r">0.400</td><td class="r">0.399</td><td class="r"><strong>0.400</strong></td></tr>
 </tbody></table></div>
-<p>割書の F1 が低めなのは、1 スパンが長い 2 列テキストで「1 文字でも違えば不正解」という厳しい定義のためです。なお「行に割書が在ることを当てる」だけのより緩い判定では F1 ≈ 0.66 で、構造の存在認識自体はふりがな・返り点に近い水準に達します。</p>
-<p>所蔵機関ごとの精度を見ると、字体・版面の難易度や撮影条件の違いがそのまま現れます。テスト集合に占める各ホスト（IIIF の画像配信元、便宜上「ホスト」と呼びます）の件数と本文の plain micro CER は次のとおりです（n ≥ 300 のホストのみ抜粋、全体の重み付き平均は <strong>0.102</strong>）。</p>
+<p>v11 比では、解像度を 1.5 倍に高めたことで <strong>割書（0.347→0.400）と返り点（0.761→0.737 ※定義差を吸収すると実質横ばい〜微増）</strong>といった、2 列構成や行内に密に並ぶ構造の認識が改善しました。一方、訓練時のオーバーサンプル比を調整した影響で <strong>送り仮名は再現率が下がり F1 が 0.605→0.535 とやや後退</strong>しています。割書の F1 が依然低めなのは、1 スパンが長い 2 列テキストで「1 文字でも違えば不正解」という厳しい定義のためであり、「行に割書が在ること」自体は概ね正しく検出できています。</p>
+<p>所蔵機関ごとの精度を見ると、字体・版面の難易度や撮影条件の違いがそのまま現れます。テスト集合に占める各ホスト（IIIF の画像配信元、便宜上「ホスト」と呼びます）の件数と本文の plain micro CER は次のとおりです（n ≥ 300 のホストのみ抜粋、全体の重み付き平均は <strong>0.094</strong>）。</p>
 <div class="table-wrap"><table>
 <thead><tr><th>所蔵元（IIIF ホスト）</th><th class="r">件数</th><th class="r">CER</th></tr></thead>
 <tbody>
-<tr><td>福井県デジタルアーカイブ<code class="host">www.digital-archives.pref.fukui.lg.jp</code></td><td class="r">4,935</td><td class="r">0.075</td></tr>
-<tr><td>京都大学附属図書館<code class="host">rmda.kulib.kyoto-u.ac.jp</code></td><td class="r">803</td><td class="r">0.082</td></tr>
-<tr><td>国立国会図書館<code class="host">dl.ndl.go.jp</code></td><td class="r">23,891</td><td class="r">0.083</td></tr>
-<tr><td>東京大学附属図書館<code class="host">iiif.dl.itc.u-tokyo.ac.jp</code></td><td class="r">7,550</td><td class="r">0.083</td></tr>
-<tr><td>ADEAC<code class="host">dcfs.trc-adeac.co.jp</code></td><td class="r">1,566</td><td class="r">0.084</td></tr>
-<tr><td>琉球大学附属図書館<code class="host">shimuchi.lib.u-ryukyu.ac.jp</code></td><td class="r">1,293</td><td class="r">0.089</td></tr>
-<tr><td>国立国会図書館（旧系統）<code class="host">www.dl.ndl.go.jp</code></td><td class="r">1,533</td><td class="r">0.098</td></tr>
-<tr><td>国立歴史民俗博物館<code class="host">khirin-a.rekihaku.ac.jp</code></td><td class="r">5,094</td><td class="r">0.116</td></tr>
-<tr><td>amane project<code class="host">ourarchives.amane-project.jp</code></td><td class="r">6,420</td><td class="r">0.125</td></tr>
-<tr><td>九州大学附属図書館<code class="host">catalog.lib.kyushu-u.ac.jp</code></td><td class="r">971</td><td class="r">0.137</td></tr>
-<tr><td>東京学芸大学附属図書館<code class="host">d-archive.u-gakugei.ac.jp</code></td><td class="r">798</td><td class="r">0.140</td></tr>
-<tr><td>国文学研究資料館<code class="host">kokusho.nijl.ac.jp</code></td><td class="r">1,864</td><td class="r">0.151</td></tr>
-<tr><td>国文学研究資料館 古典籍<code class="host">kotenseki.nijl.ac.jp</code></td><td class="r">1,187</td><td class="r">0.151</td></tr>
-<tr><td>個人/小規模配信サーバ<code class="host">os3-373-19774.vs.sakura.ne.jp</code></td><td class="r">2,407</td><td class="r">0.168</td></tr>
-<tr><td>CONTENTdm<code class="host">cdm16028.contentdm.oclc.org</code></td><td class="r">1,184</td><td class="r">0.227</td></tr>
-<tr><td>上記以外の小規模ホスト 6 件（まとめて）</td><td class="r">856</td><td class="r">0.083</td></tr>
+<tr><td>京都大学附属図書館<code class="host">rmda.kulib.kyoto-u.ac.jp</code></td><td class="r">803</td><td class="r">0.061</td></tr>
+<tr><td>ADEAC<code class="host">dcfs.trc-adeac.co.jp</code></td><td class="r">1,566</td><td class="r">0.069</td></tr>
+<tr><td>東京大学附属図書館<code class="host">iiif.dl.itc.u-tokyo.ac.jp</code></td><td class="r">7,550</td><td class="r">0.072</td></tr>
+<tr><td>福井県デジタルアーカイブ<code class="host">www.digital-archives.pref.fukui.lg.jp</code></td><td class="r">4,935</td><td class="r">0.073</td></tr>
+<tr><td>国立国会図書館<code class="host">dl.ndl.go.jp</code></td><td class="r">23,891</td><td class="r">0.078</td></tr>
+<tr><td>国立国会図書館（旧系統）<code class="host">www.dl.ndl.go.jp</code></td><td class="r">1,533</td><td class="r">0.080</td></tr>
+<tr><td>琉球大学附属図書館<code class="host">shimuchi.lib.u-ryukyu.ac.jp</code></td><td class="r">1,293</td><td class="r">0.082</td></tr>
+<tr><td>国立歴史民俗博物館<code class="host">khirin-a.rekihaku.ac.jp</code></td><td class="r">5,094</td><td class="r">0.105</td></tr>
+<tr><td>東京学芸大学附属図書館<code class="host">d-archive.u-gakugei.ac.jp</code></td><td class="r">798</td><td class="r">0.116</td></tr>
+<tr><td>amane project<code class="host">ourarchives.amane-project.jp</code></td><td class="r">6,420</td><td class="r">0.120</td></tr>
+<tr><td>国文学研究資料館<code class="host">kokusho.nijl.ac.jp</code></td><td class="r">1,864</td><td class="r">0.126</td></tr>
+<tr><td>九州大学附属図書館<code class="host">catalog.lib.kyushu-u.ac.jp</code></td><td class="r">971</td><td class="r">0.131</td></tr>
+<tr><td>国文学研究資料館 古典籍<code class="host">kotenseki.nijl.ac.jp</code></td><td class="r">1,187</td><td class="r">0.152</td></tr>
+<tr><td>個人/小規模配信サーバ<code class="host">os3-373-19774.vs.sakura.ne.jp</code></td><td class="r">2,407</td><td class="r">0.173</td></tr>
+<tr><td>CONTENTdm<code class="host">cdm16028.contentdm.oclc.org</code></td><td class="r">1,184</td><td class="r">0.218</td></tr>
+<tr><td>上記以外の小規模ホスト 6 件（まとめて）</td><td class="r">856</td><td class="r">0.080</td></tr>
 </tbody></table></div>
-<p>最大件数である国立国会図書館の標本で 0.083、コーパス全体の最良値が福井県デジタルアーカイブの 0.075 と良好な一方、国文学研究資料館の古典籍系では 0.15 前後と差があり、字体や版面の難しさの幅がはっきり現れています。最も精度が落ちる <code>cdm16028.contentdm.oclc.org</code> や <code>os3-…-sakura.ne.jp</code> は、画像品質や対象資料が他と異なる外れ値的な存在であり、今後個別に分析・対処していく対象です。</p>
+<p>最大件数である国立国会図書館の標本で 0.078、コーパス全体の最良値が京都大学附属図書館の 0.061 と良好な一方、国文学研究資料館の古典籍系では 0.15 前後と差があり、字体や版面の難しさの幅がはっきり現れています。最も精度が落ちる <code>cdm16028.contentdm.oclc.org</code> や <code>os3-…-sakura.ne.jp</code> は、画像品質や対象資料が他と異なる外れ値的な存在であり、今後個別に分析・対処していく対象です。</p>
 
 <h2>推論時の工夫</h2>
-<p>学習済みモデルは <strong>ONNX</strong> 形式に変換し、<code>quantize_dynamic</code> による動的 int8 量子化で軽量化しました（エンコーダ約 89 MB、デコーダ約 29 MB）。これをブラウザの WebAssembly 実行環境（onnxruntime-web）で動作させています。</p>
+<p>学習済みモデルは <strong>ONNX</strong> 形式に変換し、<code>quantize_dynamic</code> による動的 int8 量子化で軽量化しました。エンコーダは単一ファイル（約 89 MB）として書き出した一方、デコーダは推論時の高速化のため <strong>2 ファイルに分割</strong>して書き出しています：初回の <code>&lt;CLS&gt;</code> を流し込み内部状態（Key/Value キャッシュ）を構築するための <em>prefill</em>（約 32 MB）と、以降の 1 トークン生成ごとに既存キャッシュへ次のトークンを追記する <em>step</em>（約 28 MB）です。これによりデコーダ内のセルフアテンション計算が <strong>「これまで生成した全トークンの再計算」から「直前 1 トークンの追加計算」へ短縮され、greedy 推論は理論上 5–10 倍高速化</strong>します。これらをブラウザの WebAssembly 実行環境（onnxruntime-web）で動作させています。</p>
 <p>推論時には、いくつかの後処理を組み合わせています。第一に、撮影で生じる行の微小な傾きを<strong>投影プロファイル法</strong>で行ごとに推定し、補正してから認識に渡す処理。第二に、生成中の系列が同一トークンや短周期パターンで反復し始めた場合（行末崩壊）に打ち切る安全機構です。</p>
 
 <h2>今後の課題</h2>
-<p>撮影解像度が低い資料、字形の崩れが極端な資料、また割書のように 1 行に二段組で書かれた要素には、現状でも誤認識が残ります。学習時の入力解像度を高めること（特に 2 列構成の割書は解像度律速で改善余地が大きいこと）、そして対象資料に合わせた追加学習による改善を、次の段階として予定しています。</p>
+<p>撮影解像度が低い資料、字形の崩れが極端な資料、また割書のように 1 行に二段組で書かれた要素には、現状でも誤認識が残ります。本版（v12）で入力解像度を 1.5 倍に引き上げたことで割書の F1 はおよそ 1 割改善しましたが、なお絶対水準としては低く、さらなる解像度向上と対象資料に合わせた追加学習を次の段階として予定しています。送り仮名についても、訓練データ上の出現偏りを補正するオーバーサンプル比の再調整によって、本文の精度を維持しながら再現率を回復させることを検討中です。</p>
 </article>
 
 <hr class="lang-sep" />
 
 <article id="en" lang="en">
 <h1>Technical Details</h1>
+<p class="doc-meta">Written <time datetime="2026-05-31">May 31, 2026</time> (v12 release)</p>
 
 <p>Minna de Honkoku OCR is an OCR system that, given a cursive Japanese (<em>kuzushiji</em>) classical book image, generates not only the body text transcription but also the surrounding annotation structure&mdash;<em>furigana</em> (ruby readings), <em>okurigana</em> and <em>kaeriten</em> (Japanese-style reading marks for Chinese-text passages), and <em>warigaki</em> (interlinear two-column notes). The output is structured text with tags preserving these annotation relations, making downstream typesetting, search, and reuse straightforward.</p>
 
@@ -165,11 +168,11 @@
 <p>The constructed dataset will be <strong>released under an open license in the near future</strong>, in a form usable for both academic and commercial purposes. Details will be announced in this repository.</p>
 
 <h2>Data Preprocessing</h2>
-<p>Transcriptions use a notation specific to Minna de Honkoku. For example, &ldquo;漢字（かんじ）&rdquo; or &ldquo;《振り仮名：漢字｜かんじ》&rdquo; encode furigana; &ldquo;￣ニ&rdquo; or &ldquo;［ニ］&rdquo; encode okurigana; &ldquo;＿レ&rdquo; or &ldquo;｛レ｝&rdquo; encode kaeriten; and &ldquo;《割書：右｜左》&rdquo; encodes warigaki. As a first step, all of these are <strong>normalized into special training tokens</strong>: <code>&lt;ruby&gt;</code>, <code>&lt;rt&gt;</code>, <code>&lt;OKURI&gt;</code>, <code>&lt;KAERI&gt;</code>, <code>&lt;WARI&gt;</code>, etc. To absorb kana-orthographic variation across transcribers, we <strong>fold isolated single-character katakana into hiragana</strong>, and also unify 464 classical-form (<em>kyujitai</em>) characters to their modern (<em>shinjitai</em>) counterparts via the kyujipy mapping.</p>
+<p>Transcriptions use a <a href="https://www.wiki.honkoku.org/doku.php?id=howto_markup" target="_blank" rel="noopener">notation specific to Minna de Honkoku</a>. For example, &ldquo;漢字（かんじ）&rdquo; or &ldquo;《振り仮名：漢字｜かんじ》&rdquo; encode furigana; &ldquo;￣ニ&rdquo; or &ldquo;［ニ］&rdquo; encode okurigana; &ldquo;＿レ&rdquo; or &ldquo;｛レ｝&rdquo; encode kaeriten; and &ldquo;《割書：右｜左》&rdquo; encodes warigaki. As a first step, all of these are <strong>normalized into special training tokens</strong>: <code>&lt;ruby&gt;</code>, <code>&lt;rt&gt;</code>, <code>&lt;OKURI&gt;</code>, <code>&lt;KAERI&gt;</code>, <code>&lt;WARI&gt;</code>, etc. To absorb kana-orthographic variation across transcribers, we <strong>fold isolated single-character katakana into hiragana</strong>, and also unify 464 classical-form (<em>kyujitai</em>) characters to their modern (<em>shinjitai</em>) counterparts via the kyujipy mapping. Note that the rare &ldquo;second-reading&rdquo; ruby (a furigana on the left side of the kanji, encoded as <code>&lt;rt2&gt;</code>) appears very rarely in the gold and the model used to over-produce it; in the current version it is <strong>removed at preprocessing time and excluded from the vocabulary</strong>.</p>
 
 <h2>Model Architecture</h2>
 <p>The line recognizer is a <strong>Vision-Encoder-Decoder neural network</strong> that generates structured text from images, implemented on top of HuggingFace&rsquo;s <code>VisionEncoderDecoderModel</code> framework.</p>
-<p>The encoder uses <strong>ConvNeXt</strong> at the Base scale (~88M parameters, pretrained on ImageNet-22k and ImageNet-1k). Each vertical line is rotated 90&deg; to a horizontal orientation and resized (aspect-preserving) to height 128px and width up to 1024px. With a cumulative stride of 32, the encoder produces a <strong>4&times;32 feature map</strong> (128 vectors of 1024 dimensions). On top of this we add a custom <strong>learned 2D positional embedding</strong> indicating &ldquo;which row and column of the line is this feature from&rdquo; (8 row embeddings and 40 column embeddings; we add the appropriate row and column embeddings to each cell and apply LayerNorm).</p>
+<p>The encoder uses <strong>ConvNeXt</strong> at the Base scale (~88M parameters, pretrained on ImageNet-22k and ImageNet-1k). Each vertical line is rotated 90&deg; to a horizontal orientation and resized (aspect-preserving) to <strong>height 192px and width up to 1536px</strong> (preserving an 8:1 aspect ratio). With a cumulative stride of 32, the encoder produces a <strong>6&times;48 feature map</strong> (288 vectors of 1024 dimensions). On top of this we add a custom <strong>learned 2D positional embedding</strong> indicating &ldquo;which row and column of the line is this feature from&rdquo; (8 row embeddings and 56 column embeddings; we add the appropriate row and column embeddings to each cell and apply LayerNorm).</p>
 <p>The decoder is a small <strong>RoBERTa</strong>-based Transformer (6 layers, hidden size 512, 8 heads). It is initialized from a <strong>RoBERTa pretrained on a ~57 million-character corpus assembled from Minna de Honkoku transcriptions</strong>, using a masked language modeling (MLM) objective. In other words, the decoder starts from a language model already adapted to the target domain. We then transfer it to the OCR task; the cross-attention is trained from scratch. Generation is autoregressive, one token at a time, from <code>&lt;CLS&gt;</code> until <code>&lt;SEP&gt;</code>. The vocabulary is a <strong>character-level tokenizer</strong> consisting of the top 5,000 most frequent characters in the corpus, and it <strong>colocates 11 structural special tokens</strong> alongside those characters, so that character recognition and annotation tagging happen <strong>jointly in a single generation pass</strong>.</p>
 <figure class="fig">
   <img src="./figures/model-architecture.svg" alt="Model architecture of Minna de Honkoku OCR" />
@@ -177,50 +180,50 @@
 </figure>
 
 <h2>Training</h2>
-<p>Optimization uses AdamW with three learning-rate groups: (1) newly initialized modules, (2) the encoder backbone, and (3) the decoder, with learning rates 3&times;10<sup>&minus;4</sup>, 4&times;10<sup>&minus;5</sup>, and 5&times;10<sup>&minus;6</sup> respectively. Training runs in bfloat16 autocast with effective batch size 64 for about 85,000 steps (~5 epochs) on a single NVIDIA A100.</p>
-<p>The loss is cross-entropy with label smoothing 0.1, augmented with <strong>weighted CE (weight 2.0 on structural tokens)</strong>. We <strong>oversample lines containing kaeriten/okurigana by 2&times;</strong>. Augmentation via albumentations randomly applies elastic distortion, morphological operations, Gaussian noise, resolution reduction, and JPEG compression artifacts.</p>
+<p>Optimization uses AdamW with two learning-rate groups: the newly initialized modules (2D positional embeddings, the encoder/decoder projection layer, and cross-attention) at a high rate of 1&times;10<sup>&minus;3</sup>, and the encoder backbone and the pretrained decoder body at a low rate of 5&times;10<sup>&minus;5</sup>. Training runs in bfloat16 autocast with effective batch size 64 for about 85,000 steps (~5 epochs) on a single NVIDIA A100. Raising the input resolution from 128&times;1024 to 192&times;1536 roughly doubles memory consumption, so we halve the micro-batch and double the gradient accumulation to keep the effective batch size unchanged.</p>
+<p>The loss is cross-entropy with label smoothing 0.1, augmented with <strong>weighted CE (weight 2.0 on structural tokens)</strong>. We additionally add a <strong>focal-style regularizer that penalizes high <code>&lt;SEP&gt;</code> probability at non-terminal positions</strong> (coefficient 0.5) to discourage the model from cutting lines short. To compensate for the low frequency of kaeriten and okurigana, we <strong>oversample the corresponding training lines by 2.0&times; and 1.5&times;</strong> respectively. Augmentation via albumentations randomly applies elastic distortion, morphological operations, Gaussian noise, resolution reduction, and JPEG compression artifacts.</p>
 
 <h2>Evaluation</h2>
-<p>On a book-level test split of about <strong>62,000 lines</strong>, with kana variation normalized, <strong>plain text CER is approximately 0.10 (~90% character-level accuracy)</strong>. For annotation tagging, F1 reaches ~87% for &ldquo;which kanji receives furigana,&rdquo; ~78% for &ldquo;exact (kanji, reading) pair match,&rdquo; ~82% for kaeriten, and ~61% for okurigana.</p>
+<p>On a book-level test split of about <strong>62,000 lines</strong>, with kana variation normalized, <strong>plain text CER is approximately 0.094 (~91% character-level accuracy)</strong>. The previous version (v11) achieved CER 0.099 with the same canonicalization, so raising the input resolution from 128&times;1024 to 192&times;1536 cut the error rate by about 5%. Annotation-tagging F1 reaches ~88% for &ldquo;which kanji receives furigana,&rdquo; ~76% for &ldquo;exact (kanji, reading) pair match,&rdquo; ~74% for kaeriten, ~54% for okurigana, and ~40% for warigaki.</p>
 <p>Methodologically, structural tokens are best evaluated with <strong>multiset-token F1</strong> rather than region CER. F1 is order-invariant and outlier-robust, and gives a more realistic picture.</p>
 <p>Per-structure Precision / Recall / F1 (kana-fold normalized, spurious <code>&lt;rt2&gt;</code> stripped = deployed configuration):</p>
 <div class="table-wrap"><table>
 <thead><tr><th>Structure</th><th>Unit definition</th><th class="r">gold</th><th class="r">P</th><th class="r">R</th><th class="r">F1</th></tr></thead>
 <tbody>
-<tr><td>Furigana</td><td>exact (kanji, reading) pair match</td><td class="r">28,327</td><td class="r">0.796</td><td class="r">0.766</td><td class="r"><strong>0.781</strong></td></tr>
-<tr><td>Okurigana</td><td>multiset of <code>&lt;OKURI&gt;</code> content tokens</td><td class="r">1,081</td><td class="r">0.586</td><td class="r">0.626</td><td class="r"><strong>0.605</strong></td></tr>
-<tr><td>Kaeriten</td><td>multiset of <code>&lt;KAERI&gt;</code> content tokens (＿ unified)</td><td class="r">3,236</td><td class="r">0.861</td><td class="r">0.788</td><td class="r"><strong>0.823</strong></td></tr>
-<tr><td>Warigaki</td><td>exact span match (right + separator + left)</td><td class="r">1,956</td><td class="r">0.354</td><td class="r">0.340</td><td class="r"><strong>0.347</strong></td></tr>
+<tr><td>Furigana</td><td>exact (kanji, reading) pair match</td><td class="r">28,217</td><td class="r">0.783</td><td class="r">0.731</td><td class="r"><strong>0.756</strong></td></tr>
+<tr><td>Okurigana</td><td>exact <code>&lt;OKURI&gt;</code> span string match</td><td class="r">1,081</td><td class="r">0.602</td><td class="r">0.482</td><td class="r"><strong>0.535</strong></td></tr>
+<tr><td>Kaeriten</td><td>exact <code>&lt;KAERI&gt;</code> span string match (＿ unified)</td><td class="r">2,180</td><td class="r">0.780</td><td class="r">0.698</td><td class="r"><strong>0.737</strong></td></tr>
+<tr><td>Warigaki</td><td>exact span match (right + separator + left)</td><td class="r">1,956</td><td class="r">0.400</td><td class="r">0.399</td><td class="r"><strong>0.400</strong></td></tr>
 </tbody></table></div>
-<p>Warigaki F1 is lower because its unit is a long two-column string and any single-character mismatch fails the span. A looser &ldquo;does the line contain warigaki at all&rdquo; detection reaches F1 &approx; 0.66, comparable to the other categories on structural presence alone.</p>
-<p>Per-host plain micro CER (hosts with n &ge; 300, weighted average <strong>0.102</strong>):</p>
+<p>Versus v11, the 1.5&times; resolution bump particularly helped two-column structures: <strong>warigaki F1 rose 0.347&rarr;0.400</strong> and kaeriten span F1 is comparable after definition differences are reconciled. Okurigana F1 regressed (0.605&rarr;0.535) due to a more conservative oversample ratio chosen during training; recovering its recall while preserving the body-text gain is one of the next-step items. Warigaki F1 is still relatively low because its unit is a long two-column string and any single-character mismatch fails the span, but a looser &ldquo;does the line contain warigaki at all&rdquo; detection reaches F1 &approx; 0.66.</p>
+<p>Per-host plain micro CER (hosts with n &ge; 300, weighted average <strong>0.094</strong>):</p>
 <div class="table-wrap"><table>
 <thead><tr><th>Holding institution (IIIF host)</th><th class="r">n</th><th class="r">CER</th></tr></thead>
 <tbody>
-<tr><td>Fukui Prefectural Digital Archives<code class="host">www.digital-archives.pref.fukui.lg.jp</code></td><td class="r">4,935</td><td class="r">0.075</td></tr>
-<tr><td>Kyoto University Library<code class="host">rmda.kulib.kyoto-u.ac.jp</code></td><td class="r">803</td><td class="r">0.082</td></tr>
-<tr><td>National Diet Library<code class="host">dl.ndl.go.jp</code></td><td class="r">23,891</td><td class="r">0.083</td></tr>
-<tr><td>University of Tokyo Library<code class="host">iiif.dl.itc.u-tokyo.ac.jp</code></td><td class="r">7,550</td><td class="r">0.083</td></tr>
-<tr><td>ADEAC<code class="host">dcfs.trc-adeac.co.jp</code></td><td class="r">1,566</td><td class="r">0.084</td></tr>
-<tr><td>University of the Ryukyus Library<code class="host">shimuchi.lib.u-ryukyu.ac.jp</code></td><td class="r">1,293</td><td class="r">0.089</td></tr>
-<tr><td>National Diet Library (legacy)<code class="host">www.dl.ndl.go.jp</code></td><td class="r">1,533</td><td class="r">0.098</td></tr>
-<tr><td>National Museum of Japanese History<code class="host">khirin-a.rekihaku.ac.jp</code></td><td class="r">5,094</td><td class="r">0.116</td></tr>
-<tr><td>amane project<code class="host">ourarchives.amane-project.jp</code></td><td class="r">6,420</td><td class="r">0.125</td></tr>
-<tr><td>Kyushu University Library<code class="host">catalog.lib.kyushu-u.ac.jp</code></td><td class="r">971</td><td class="r">0.137</td></tr>
-<tr><td>Tokyo Gakugei University Library<code class="host">d-archive.u-gakugei.ac.jp</code></td><td class="r">798</td><td class="r">0.140</td></tr>
-<tr><td>National Institute of Japanese Literature<code class="host">kokusho.nijl.ac.jp</code></td><td class="r">1,864</td><td class="r">0.151</td></tr>
-<tr><td>NIJL Classical Books<code class="host">kotenseki.nijl.ac.jp</code></td><td class="r">1,187</td><td class="r">0.151</td></tr>
-<tr><td>Individual / small-scale server<code class="host">os3-373-19774.vs.sakura.ne.jp</code></td><td class="r">2,407</td><td class="r">0.168</td></tr>
-<tr><td>CONTENTdm<code class="host">cdm16028.contentdm.oclc.org</code></td><td class="r">1,184</td><td class="r">0.227</td></tr>
-<tr><td>6 other small hosts (combined)</td><td class="r">856</td><td class="r">0.083</td></tr>
+<tr><td>Kyoto University Library<code class="host">rmda.kulib.kyoto-u.ac.jp</code></td><td class="r">803</td><td class="r">0.061</td></tr>
+<tr><td>ADEAC<code class="host">dcfs.trc-adeac.co.jp</code></td><td class="r">1,566</td><td class="r">0.069</td></tr>
+<tr><td>University of Tokyo Library<code class="host">iiif.dl.itc.u-tokyo.ac.jp</code></td><td class="r">7,550</td><td class="r">0.072</td></tr>
+<tr><td>Fukui Prefectural Digital Archives<code class="host">www.digital-archives.pref.fukui.lg.jp</code></td><td class="r">4,935</td><td class="r">0.073</td></tr>
+<tr><td>National Diet Library<code class="host">dl.ndl.go.jp</code></td><td class="r">23,891</td><td class="r">0.078</td></tr>
+<tr><td>National Diet Library (legacy)<code class="host">www.dl.ndl.go.jp</code></td><td class="r">1,533</td><td class="r">0.080</td></tr>
+<tr><td>University of the Ryukyus Library<code class="host">shimuchi.lib.u-ryukyu.ac.jp</code></td><td class="r">1,293</td><td class="r">0.082</td></tr>
+<tr><td>National Museum of Japanese History<code class="host">khirin-a.rekihaku.ac.jp</code></td><td class="r">5,094</td><td class="r">0.105</td></tr>
+<tr><td>Tokyo Gakugei University Library<code class="host">d-archive.u-gakugei.ac.jp</code></td><td class="r">798</td><td class="r">0.116</td></tr>
+<tr><td>amane project<code class="host">ourarchives.amane-project.jp</code></td><td class="r">6,420</td><td class="r">0.120</td></tr>
+<tr><td>National Institute of Japanese Literature<code class="host">kokusho.nijl.ac.jp</code></td><td class="r">1,864</td><td class="r">0.126</td></tr>
+<tr><td>Kyushu University Library<code class="host">catalog.lib.kyushu-u.ac.jp</code></td><td class="r">971</td><td class="r">0.131</td></tr>
+<tr><td>NIJL Classical Books<code class="host">kotenseki.nijl.ac.jp</code></td><td class="r">1,187</td><td class="r">0.152</td></tr>
+<tr><td>Individual / small-scale server<code class="host">os3-373-19774.vs.sakura.ne.jp</code></td><td class="r">2,407</td><td class="r">0.173</td></tr>
+<tr><td>CONTENTdm<code class="host">cdm16028.contentdm.oclc.org</code></td><td class="r">1,184</td><td class="r">0.218</td></tr>
+<tr><td>6 other small hosts (combined)</td><td class="r">856</td><td class="r">0.080</td></tr>
 </tbody></table></div>
 
 <h2>Inference</h2>
-<p>The trained model is exported to <strong>ONNX</strong> and compressed via <code>quantize_dynamic</code> (dynamic int8 quantization), giving an encoder of about 89 MB and a decoder of about 29 MB. These are executed in the browser&rsquo;s WebAssembly environment using <em>onnxruntime-web</em>.</p>
+<p>The trained model is exported to <strong>ONNX</strong> and compressed via <code>quantize_dynamic</code> (dynamic int8 quantization). The encoder is shipped as a single file (~89 MB), while for inference speed the decoder is split into <strong>two files</strong>: a <em>prefill</em> graph (~32 MB) that runs once on <code>&lt;CLS&gt;</code> and constructs the internal Key/Value cache, and a <em>step</em> graph (~28 MB) that consumes the cache and a single new token at each iteration. This means decoder self-attention shifts from &ldquo;recompute over all tokens generated so far&rdquo; to &ldquo;extend by one new token,&rdquo; giving a theoretical <strong>5&ndash;10&times; speedup on greedy decoding</strong>. The graphs are executed in the browser&rsquo;s WebAssembly environment using <em>onnxruntime-web</em>.</p>
 <p>Several post-processing steps run at inference time. First, small per-line tilts are estimated with a <strong>projection-profile method</strong> and corrected before recognition. Second, a safety guard terminates generation if the output begins repeating the same token or a short cyclic pattern (end-of-line collapse).</p>
 
 <h2>Future Work</h2>
-<p>Low-resolution images, severely deformed scripts, and warigaki remain failure modes. We plan to raise the training resolution and to perform targeted additional training on specific source materials.</p>
+<p>Low-resolution images, severely deformed scripts, and warigaki remain failure modes. The 1.5&times; resolution bump in v12 improved warigaki F1 by about 15% relative, but the absolute level remains modest; we plan further resolution increases and targeted additional training on specific source materials. For okurigana, recovering recall while preserving body-text accuracy by re-tuning the oversample ratio is also under consideration.</p>
 </article>
 
 </main>

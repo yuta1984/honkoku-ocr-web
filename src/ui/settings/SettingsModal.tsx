@@ -12,13 +12,13 @@ interface SettingsModalProps {
 }
 
 const OCR_VERSIONS: { value: OcrModelVersion; label: string; descJa: string; descEn: string }[] = [
-  { value: 'v11', label: 'v11', descJa: 'ConvNeXt-Base + 拡充データ。返点・送り仮名を改善し平文・ふりがなは維持（推奨）', descEn: 'ConvNeXt-Base + enriched data. Improves kaeriten/okurigana, keeps plain/furigana (recommended)' },
-  { value: 'v8', label: 'v8', descJa: 'ConvNeXt-Base。低解像度に強く高精度', descEn: 'ConvNeXt-Base. Robust to low resolution, high accuracy' },
+  { value: 'v12', label: 'v12', descJa: '192×1536 高解像度 + KOJI_NO_RT2 + KV キャッシュ。test plain CER 0.0906 (v11 比 -9%)（推奨）', descEn: '192×1536 high-res + KOJI_NO_RT2 + KV cache. test plain CER 0.0906 (-9% vs v11) (recommended)' },
+  { value: 'v11', label: 'v11', descJa: 'ConvNeXt-Base + 拡充データ。返点・送り仮名 F1 改善（128×1024）', descEn: 'ConvNeXt-Base + enriched data. Improves kaeriten/okurigana F1 (128×1024)' },
 ]
 
 const LAYOUT_VERSIONS: { value: LayoutModelVersion; label: string; descJa: string; descEn: string }[] = [
-  { value: 'rtmdet', label: 'RTMDet-m', descJa: '2クラス行検出器（手書き/活字）。入力 1024×1024、NMS 内蔵。長行を途中で切らない（推奨）', descEn: 'Two-class line detector (handwritten/print). 1024×1024 input, NMS included. Better at long vertical lines (recommended)' },
-  { value: 'yolo',   label: 'YOLOv8 (koten-layout)', descJa: '従来モデル。5クラス（全体/手書き/活字/図版/印判）を検出', descEn: 'Legacy model. 5 classes (overall/handwritten/typography/illustration/stamp)' },
+  { value: 'rtmdet', label: 'RTMDet-s（NDL古典籍OCR-Lite）', descJa: 'NDL古典籍OCR-Lite に附属のレイアウト認識モデル（推奨）', descEn: 'Layout detection model bundled with NDL Kotenseki OCR-Lite (recommended)' },
+  { value: 'yolo',   label: 'YOLOv8', descJa: '本システムオリジナルのレイアウト認識モデル', descEn: 'Layout detection model originally developed for this system' },
 ]
 
 export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersion, layoutVersion, onChangeLayoutVersion }: SettingsModalProps) {

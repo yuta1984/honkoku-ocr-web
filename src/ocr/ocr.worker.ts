@@ -10,7 +10,7 @@
  */
 
 import './onnx-config'
-import { loadModel, DEFAULT_OCR_VERSION, DEFAULT_LAYOUT_VERSION } from './model-loader'
+import { loadModel, DEFAULT_OCR_VERSION, DEFAULT_LAYOUT_VERSION, HAS_KV_CACHE_DECODER } from './model-loader'
 import type { OcrModelVersion, LayoutModelVersion } from './model-loader'
 import { LayoutDetector } from './layout-detector'
 import { ReadingOrderProcessor } from './reading-order'
@@ -32,23 +32,34 @@ class LayoutWorker {
   async initialize(): Promise<void> {
     if (this.initialized) return
     try {
-      const progresses = { layout: 0, encoder: 0, decoder: 0 }
+      // v12 は decoder が prefill+step の2ファイル。ステータスバーは「decoder」として
+      // 平均値を 1 つにまとめて表示する（4 ファイル表示は煩雑なため）。
+      const splitDec = HAS_KV_CACHE_DECODER(this.version)
+      const progresses = { layout: 0, encoder: 0, decoder: 0, decoderPrefill: 0, decoderStep: 0 }
+      const decoderAvg = () => splitDec ? (progresses.decoderPrefill + progresses.decoderStep) / 2 : progresses.decoder
       const report = () => {
-        const avg = (progresses.layout + progresses.encoder + progresses.decoder) / 3
+        const dec = decoderAvg()
+        const avg = (progresses.layout + progresses.encoder + dec) / 3
         this.post({
           type: 'INIT_PROGRESS',
           progress: avg,
           message: `モデルをダウンロード中... ${Math.round(avg * 100)}%`,
-          modelProgress: { ...progresses },
+          modelProgress: { layout: progresses.layout, encoder: progresses.encoder, decoder: dec },
         })
       }
 
-      // 3 モデルを並列ダウンロード（IndexedDB へキャッシュ）。OCR/layout とも version 別。
-      const [layoutData] = await Promise.all([
-        loadModel('layout', (p) => { progresses.layout = p; report() }, this.version, this.layoutVersion),
+      // モデルを並列ダウンロード(IndexedDB へキャッシュ)。OCR/layout とも version 別。
+      const tasks: Promise<unknown>[] = [
+        loadModel('layout',     (p) => { progresses.layout = p; report() },  this.version, this.layoutVersion),
         loadModel('ocrEncoder', (p) => { progresses.encoder = p; report() }, this.version, this.layoutVersion),
-        loadModel('ocrDecoder', (p) => { progresses.decoder = p; report() }, this.version, this.layoutVersion),
-      ])
+      ]
+      if (splitDec) {
+        tasks.push(loadModel('ocrDecoderPrefill', (p) => { progresses.decoderPrefill = p; report() }, this.version, this.layoutVersion))
+        tasks.push(loadModel('ocrDecoderStep',    (p) => { progresses.decoderStep    = p; report() }, this.version, this.layoutVersion))
+      } else {
+        tasks.push(loadModel('ocrDecoder', (p) => { progresses.decoder = p; report() }, this.version, this.layoutVersion))
+      }
+      const [layoutData] = await Promise.all(tasks) as [ArrayBuffer, ...ArrayBuffer[]]
 
       this.post({ type: 'INIT_PROGRESS', progress: 0.98, message: 'レイアウトモデルを準備中...' })
       this.detector = new LayoutDetector()

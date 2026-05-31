@@ -36,8 +36,8 @@ export function StatusBar({ modelState, lang }: { modelState: ModelState; lang: 
       {!isError && modelState.progress < 0.95 && (
         <p className="statusbar-note">
           {lang === 'ja'
-            ? '初回のみモデル(約120MB)をダウンロードします。次回からはキャッシュから高速起動します。'
-            : 'Models (~120MB) download once on first run, then load instantly from cache.'}
+            ? '初回のみモデル(約150MB)をダウンロードします。次回からはキャッシュから高速起動します。'
+            : 'Models (~150MB) download once on first run, then load instantly from cache.'}
         </p>
       )}
     </div>

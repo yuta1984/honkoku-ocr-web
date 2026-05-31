@@ -68,9 +68,42 @@ export class LayoutDetector {
     if (!this.initialized || !this.session) {
       throw new Error('Layout detector not initialized')
     }
-    return this.version === 'rtmdet'
-      ? this.detectRtmdet(imageData, confThreshold)
-      : this.detectYolo(imageData, confThreshold, iouThreshold)
+    const result = this.version === 'rtmdet'
+      ? await this.detectRtmdet(imageData, confThreshold)
+      : await this.detectYolo(imageData, confThreshold, iouThreshold)
+    // 入れ子 bbox（小さい行 box が大きい行 box に大きく内包される）を除去。
+    // 通常の NMS は IoU で判定するため、大小差のある入れ子は素通りすることがある。
+    const dedupLines = this.removeNestedBoxes(result.lines)
+    if (dedupLines.length !== result.lines.length) {
+      console.log(`[LayoutDetector] nested-box suppression: ${result.lines.length} → ${dedupLines.length}`)
+    }
+    return { lines: dedupLines, regions: result.regions }
+  }
+
+  /**
+   * 入れ子 bbox 除去（class-agnostic）。
+   * 各候補 box について、既に keep した大きい box との交わり面積を計算し、
+   * IoS = 交わり面積 / 候補の面積 が iosThreshold 以上なら「内包された」として捨てる。
+   * 大きいものから順に評価することで、小さい入れ子だけを suppress できる。
+   */
+  private removeNestedBoxes(lines: LineBox[], iosThreshold = 0.8): LineBox[] {
+    const sorted = [...lines].sort((a, b) => (b.width * b.height) - (a.width * a.height))
+    const kept: LineBox[] = []
+    for (const cand of sorted) {
+      const candArea = cand.width * cand.height
+      let suppressed = false
+      for (const k of kept) {
+        const ix1 = Math.max(cand.x, k.x)
+        const iy1 = Math.max(cand.y, k.y)
+        const ix2 = Math.min(cand.x + cand.width, k.x + k.width)
+        const iy2 = Math.min(cand.y + cand.height, k.y + k.height)
+        const inter = Math.max(0, ix2 - ix1) * Math.max(0, iy2 - iy1)
+        if (inter === 0) continue
+        if (inter / candArea >= iosThreshold) { suppressed = true; break }
+      }
+      if (!suppressed) kept.push(cand)
+    }
+    return kept
   }
 
   // ----- RTMDet ----------------------------------------------------------
@@ -83,88 +116,29 @@ export class LayoutDetector {
     const detsData = detsTensor.data as Float32Array
     const numDets = detsTensor.dims[1]
 
-    // 元座標系の bbox を作って、クラス横断 NMS で重複除去する。
-    // mmdeploy エクスポート時の NMS は per-class（max_output_boxes_per_class=200）なので、
-    // 2 クラス(手書き/活字)で同じ行を別クラスとして残しがち。ここで class-agnostic NMS。
-    const raw: RawDet[] = []
+    const lines: LineBox[] = []
     for (let i = 0; i < numDets; i++) {
       const off = i * 5
       const score = detsData[off + 4]
       if (score < confThreshold) continue
-      raw.push({
-        x1: (detsData[off + 0] - meta.padX) / meta.scale,
-        y1: (detsData[off + 1] - meta.padY) / meta.scale,
-        x2: (detsData[off + 2] - meta.padX) / meta.scale,
-        y2: (detsData[off + 3] - meta.padY) / meta.scale,
-        conf: score,
-        classId: LAYOUT_CLASS.HANDWRITTEN,
-      })
-    }
-    const merged = this.nmsAgnostic(raw, 0.4, 0.6)
-
-    // 行の読み方向（縦書きでは y、横書きでは x）に余白を付与。
-    // ONNX 出力の bbox は字形ぴったりに張り付き、訓練アノテーションも本文中央寄りに
-    // タイトに付けられている傾向があるので大きめに：長軸方向は ~10%、短軸方向は ~5%。
-    const lines: LineBox[] = []
-    for (const d of merged) {
-      const w = d.x2 - d.x1
-      const h = d.y2 - d.y1
-      const vertical = h >= w
-      const padLong = Math.max(60, Math.round((vertical ? h : w) * 0.10))
-      const padShort = Math.max(20, Math.round((vertical ? w : h) * 0.05))
-      const padX = vertical ? padShort : padLong
-      const padY = vertical ? padLong : padShort
-      const x = Math.max(0, Math.round(d.x1 - padX))
-      const y = Math.max(0, Math.round(d.y1 - padY))
-      const x2c = Math.min(meta.origW, Math.round(d.x2 + padX))
-      const y2c = Math.min(meta.origH, Math.round(d.y2 + padY))
-      const width = x2c - x
-      const height = y2c - y
+      const x1 = (detsData[off + 0] - meta.padX) / meta.scale
+      const y1 = (detsData[off + 1] - meta.padY) / meta.scale
+      const x2 = (detsData[off + 2] - meta.padX) / meta.scale
+      const y2 = (detsData[off + 3] - meta.padY) / meta.scale
+      const x = Math.max(0, Math.round(x1))
+      const y = Math.max(0, Math.round(y1))
+      const width = Math.min(meta.origW, Math.round(x2)) - x
+      const height = Math.min(meta.origH, Math.round(y2)) - y
       if (width < 6 || height < 6) continue
       lines.push({
         x, y, width, height,
-        confidence: d.conf,
+        confidence: score,
         classId: LAYOUT_CLASS.HANDWRITTEN,
         readingOrder: 0,
       })
     }
-    console.log(`[LayoutDetector] ${lines.length} lines (rtmdet, dedup ${raw.length}→${merged.length})`)
+    console.log(`[LayoutDetector] ${lines.length} lines (rtmdet)`)
     return { lines, regions: [] }
-  }
-
-  /**
-   * クラス横断 NMS。IoU だけでなく IoS（intersection over smaller）も用いる。
-   * 通常 NMS（IoU）は「ほぼ同じ大きさで重なる」ケースのみ捕捉するため、
-   * 「小さい box が大きい box に内包される」入れ子ケースを取りこぼす。
-   * IoS = 交わり面積 / 小さい方の面積 が大きいときも suppress する。
-   */
-  private nmsAgnostic(dets: RawDet[], iouThreshold: number, iosThreshold: number): RawDet[] {
-    const result: RawDet[] = []
-    let cands = [...dets].sort((a, b) => b.conf - a.conf)
-    while (cands.length > 0) {
-      const best = cands.shift()!
-      result.push(best)
-      const areaBest = (best.x2 - best.x1) * (best.y2 - best.y1)
-      cands = cands.filter((c) => {
-        const inter = this.interArea(best, c)
-        if (inter === 0) return true
-        const areaC = (c.x2 - c.x1) * (c.y2 - c.y1)
-        const union = areaBest + areaC - inter
-        if (inter / union >= iouThreshold) return false   // 通常 IoU NMS
-        const ios = inter / Math.min(areaBest, areaC)
-        if (ios >= iosThreshold) return false              // 内包ケース
-        return true
-      })
-    }
-    return result
-  }
-
-  private interArea(a: RawDet, b: RawDet): number {
-    const ix1 = Math.max(a.x1, b.x1)
-    const iy1 = Math.max(a.y1, b.y1)
-    const ix2 = Math.min(a.x2, b.x2)
-    const iy2 = Math.min(a.y2, b.y2)
-    return Math.max(0, ix2 - ix1) * Math.max(0, iy2 - iy1)
   }
 
   private preprocessRtmdet(imageData: ImageData): { tensor: OrtType.Tensor; meta: Meta } {

@@ -7,7 +7,7 @@
  */
 
 import './onnx-config'
-import { loadModel } from './model-loader'
+import { loadModel, HAS_KV_CACHE_DECODER } from './model-loader'
 import { TextRecognizer } from './text-recognizer'
 import type { RecWorkerInMessage, RecWorkerOutMessage } from '../types/recognition-worker'
 
@@ -23,12 +23,23 @@ self.onmessage = async (e: MessageEvent<RecWorkerInMessage>) => {
 
   if (msg.type === 'REC_INIT') {
     try {
-      const [encData, decData] = await Promise.all([
-        loadModel('ocrEncoder', undefined, msg.version),
-        loadModel('ocrDecoder', undefined, msg.version),
-      ])
-      recognizer = new TextRecognizer()
-      await recognizer.initialize(encData, decData, msg.version)
+      // v12 は decoder が prefill+step の2ファイル。それ以外は single decoder。
+      if (HAS_KV_CACHE_DECODER(msg.version)) {
+        const [encData, prefillData, stepData] = await Promise.all([
+          loadModel('ocrEncoder',        undefined, msg.version),
+          loadModel('ocrDecoderPrefill', undefined, msg.version),
+          loadModel('ocrDecoderStep',    undefined, msg.version),
+        ])
+        recognizer = new TextRecognizer()
+        await recognizer.initialize({ encoderData: encData, prefillData, stepData, version: msg.version })
+      } else {
+        const [encData, decData] = await Promise.all([
+          loadModel('ocrEncoder', undefined, msg.version),
+          loadModel('ocrDecoder', undefined, msg.version),
+        ])
+        recognizer = new TextRecognizer()
+        await recognizer.initialize({ encoderData: encData, decoderData: decData, version: msg.version })
+      }
       post({ type: 'REC_READY' })
     } catch (err) {
       post({ type: 'REC_INIT_ERROR', error: (err as Error).message })

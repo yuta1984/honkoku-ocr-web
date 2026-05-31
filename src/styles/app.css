@@ -426,6 +426,16 @@
 }
 .vpanel-title { font-size: 0.9rem; font-weight: 600; }
 .vpanel-tools { display: flex; align-items: center; gap: 8px; }
+.vpanel-footer {
+  flex: 0 0 auto;
+  padding: 6px 14px;
+  border-top: 1px solid var(--line);
+  background: #fafafa;
+  font-size: 0.78rem;
+  text-align: right;
+}
+.vpanel-footer a { color: var(--accent); text-decoration: none; }
+.vpanel-footer a:hover { text-decoration: underline; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .seg-btn {
   background: #fff; border: none; padding: 3px 12px; font-size: 0.78rem; color: var(--muted);

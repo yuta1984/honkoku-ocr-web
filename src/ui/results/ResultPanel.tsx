@@ -188,6 +188,15 @@ export function ResultPanel({ item, selectedOrder, onSelectLine, onUpdateLineTex
         </div>
       </div>
       {body}
+      <div className="vpanel-footer">
+        <a
+          href="https://www.wiki.honkoku.org/doku.php?id=howto_markup"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {lang === 'ja' ? 'みんなで翻刻記法について ↗' : 'About Minna de Honkoku notation ↗'}
+        </a>
+      </div>
     </div>
   )
 }
