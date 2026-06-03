@@ -22,7 +22,9 @@ const SAMPLE_FILES = [
 
 interface PageSidebarProps {
   pages: PageItem[]
+  selectedPage: PageItem | null
   selectedId: string | null
+  selectedNeedsLayout: boolean
   lang: Language
   isLoadingFiles: boolean
   canProcess: boolean
@@ -37,6 +39,8 @@ interface PageSidebarProps {
   onPaste: () => void
   onSelectPage: (id: string) => void
   onRemovePage: (id: string) => void
+  onLayout: () => void  // PC 用: 単一画像のレイアウト認識
+  onOcr: () => void     // PC 用: 単一画像の OCR 実行
   onLayoutAll: () => void
   onOcrAll: () => void
   onClearAll: () => void
@@ -52,10 +56,14 @@ export function PageSidebar(p: PageSidebarProps) {
   // モバイル: drawer の開閉状態にアクセシビリティ属性を反映する
   const ariaHidden = p.isMobile && !p.isOpen
   const [loadingSample, setLoadingSample] = useState(false)
+  // SAMPLE_FILES を順番にローテーション。末尾まで行ったら 0 に戻る。
+  const [sampleIndex, setSampleIndex] = useState(0)
 
-  // サンプル画像 (R2) を 1 枚ランダムに fetch して addImages に流す
+  // サンプル画像 (R2) を 1 枚順番に fetch して addImages に流す
   const handleLoadSample = async () => {
-    const name = SAMPLE_FILES[Math.floor(Math.random() * SAMPLE_FILES.length)]
+    const idx = sampleIndex
+    const name = SAMPLE_FILES[idx]
+    setSampleIndex((idx + 1) % SAMPLE_FILES.length)
     setLoadingSample(true)
     try {
       const res = await fetch(`${SAMPLE_BASE}/${name}`)
@@ -112,7 +120,7 @@ export function PageSidebar(p: PageSidebarProps) {
         >
           {loadingSample
             ? (lang === 'ja' ? 'サンプルを読み込み中...' : 'Loading sample...')
-            : (lang === 'ja' ? 'サンプル' : 'Sample')}
+            : (lang === 'ja' ? 'サンプルを追加' : 'Add sample')}
         </button>
         <input
           ref={fileInputRef}
@@ -123,6 +131,26 @@ export function PageSidebar(p: PageSidebarProps) {
           style={{ display: 'none' }}
         />
       </div>
+
+      {!p.isMobile && (
+        <div className="sidebar-processing">
+          <button
+            className="btn btn-primary btn-block"
+            disabled={!p.canProcess || !p.selectedPage}
+            onClick={p.onLayout}
+          >
+            {lang === 'ja' ? '② レイアウト認識' : '② Layout'}
+          </button>
+          <button
+            className="btn btn-primary btn-block"
+            disabled={!p.canProcess || p.selectedNeedsLayout}
+            title={p.selectedNeedsLayout && p.selectedPage ? p.ocrHint : undefined}
+            onClick={p.onOcr}
+          >
+            {lang === 'ja' ? '③ OCR実行' : '③ OCR'}
+          </button>
+        </div>
+      )}
 
       <div className="sidebar-list">
         {p.pages.length === 0 && (

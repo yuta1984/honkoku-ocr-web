@@ -188,6 +188,13 @@
 .sidebar-batch-title { font-size: 0.75rem; color: var(--muted); margin-bottom: 2px; }
 .sidebar-step-title { font-size: 0.85rem; font-weight: 600; color: var(--accent-strong); margin-bottom: 2px; }
 
+/* PC のみ表示: ②③ ボタン (sidebar-actions と sidebar-list の間に配置)。ガイドはビューア上に出る */
+.sidebar-processing {
+  padding: 10px 12px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
 /* ----- 中央（画像ビューア。右パネル幅はドラッグで調整） ----- */
 .center {
   flex: 1 1 0;
@@ -205,6 +212,19 @@
   transition: background 0.12s;
 }
 .splitter:hover { background: var(--accent); }
+
+/* 翻刻パネルが折りたたまれている時に右端へ出る再表示ボタン (PC only) */
+.show-right-strip {
+  flex: 0 0 22px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--panel);
+  border: none; border-left: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.85rem; cursor: pointer;
+  padding: 0;
+}
+.show-right-strip:hover { background: #e3f2fd; color: var(--accent-strong); }
+.vpanel-hide { padding: 3px 8px; }
 .toolbar {
   flex: 0 0 auto;
   display: flex;
@@ -219,14 +239,26 @@
 .toolbar-left { display: flex; gap: 8px; }
 .toolbar-info { font-size: 0.82rem; color: var(--muted); }
 .toolbar-guide {
-  padding: 6px 14px;
+  padding: 6px 8px 6px 14px;
   font-size: 0.82rem;
   color: var(--accent-strong);
   background: #e3f2fd;
   border-bottom: 1px solid var(--line);
   line-height: 1.45;
+  display: flex; align-items: flex-start; gap: 8px;
 }
+.toolbar-guide-text { flex: 1 1 auto; }
 .toolbar-guide strong { color: var(--accent-strong); font-weight: 600; }
+.toolbar-guide-dismiss {
+  flex: 0 0 auto;
+  background: none; border: none; padding: 0;
+  width: 22px; height: 22px;
+  font-size: 0.78rem; line-height: 1;
+  color: var(--accent-strong);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.toolbar-guide-dismiss:hover { background: rgba(21, 101, 192, 0.12); }
 
 .jobbar {
   flex: 0 0 auto;
@@ -424,6 +456,7 @@
   padding: 10px 14px;
   border-bottom: 1px solid var(--line);
 }
+.vpanel-header-left { display: flex; align-items: center; gap: 6px; }
 .vpanel-title { font-size: 0.9rem; font-weight: 600; }
 .vpanel-tools { display: flex; align-items: center; gap: 8px; }
 .vpanel-footer {
@@ -685,6 +718,14 @@
 .settings-radio-label { display: flex; flex-direction: column; gap: 2px; }
 .settings-radio-label strong { font-size: 0.9rem; }
 .settings-radio-desc { font-size: 0.8rem; color: var(--muted); }
+.settings-checkbox {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+  cursor: pointer; font-size: 0.9rem;
+}
+.settings-checkbox:hover { background: var(--hover, rgba(0,0,0,0.03)); }
+.settings-checkbox input { margin: 0; }
+.settings-checkbox-desc { margin: 8px 2px 0; }
 
 /* ===== ハンバーガーボタン (モバイル only via @media) ===== */
 .btn-menu {

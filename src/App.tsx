@@ -5,6 +5,7 @@ import { useFileDrop } from './hooks/useFileDrop'
 import { useMediaQuery } from './hooks/useMediaQuery'
 import { useModelVersion } from './hooks/useModelVersion'
 import { useLayoutVersion } from './hooks/useLayoutVersion'
+import { useShowGuide } from './hooks/useShowGuide'
 import { useOCRWorker } from './hooks/useOCRWorker'
 import { usePageStore } from './hooks/usePageStore'
 import { Header } from './ui/layout/Header'
@@ -17,6 +18,7 @@ import { ImageViewer, type ImageViewerHandle } from './ui/viewer/ImageViewer'
 import { ResultPanel } from './ui/results/ResultPanel'
 import { SettingsModal } from './ui/settings/SettingsModal'
 import { ImageSourcePicker } from './ui/mobile/ImageSourcePicker'
+import { processingGuide } from './lib/processing-guide'
 import { decodeBlobToImageData } from './lib/imageLoader'
 import { downloadPages, type ExportFormat } from './lib/textExport'
 import './styles/app.css'
@@ -29,6 +31,7 @@ export default function App() {
   const isMobile = useMediaQuery('(max-width: 768px)')
   const { modelVersion, setModelVersion } = useModelVersion()
   const { layoutVersion, setLayoutVersion } = useLayoutVersion()
+  const { showGuide, setShowGuide } = useShowGuide()
   const { isReady, modelState, detectLayout, recognizeLines } = useOCRWorker(modelVersion, layoutVersion)
   const store = usePageStore()
   const {
@@ -238,7 +241,9 @@ export default function App() {
         )}
         <PageSidebar
           pages={pages}
+          selectedPage={selectedPage}
           selectedId={selectedId}
+          selectedNeedsLayout={selectedNeedsLayout}
           lang={lang}
           isLoadingFiles={isLoadingFiles}
           canProcess={canProcess}
@@ -253,6 +258,8 @@ export default function App() {
           onPaste={handlePaste}
           onSelectPage={selectPage}
           onRemovePage={removePage}
+          onLayout={() => selectedPage && runLayout([selectedPage.id])}
+          onOcr={() => selectedPage && runOCR([selectedPage.id])}
           onLayoutAll={() => runLayout(pages.map((p) => p.id))}
           onOcrAll={() => runOCR(pages.map((p) => p.id))}
           onClearAll={handleClearAll}
@@ -260,18 +267,38 @@ export default function App() {
         />
 
         <section className="center">
-          <Toolbar
-            selectedPage={selectedPage}
-            canProcess={canProcess}
-            selectedNeedsLayout={selectedNeedsLayout}
-            ocrHint={ocrHint}
-            rightVisible={rightVisible}
-            lang={lang}
-            isMobile={isMobile}
-            onLayout={() => selectedPage && runLayout([selectedPage.id])}
-            onOcr={() => selectedPage && runOCR([selectedPage.id])}
-            onToggleRight={() => setRightVisible((v) => !v)}
-          />
+          {isMobile ? (
+            <Toolbar
+              selectedPage={selectedPage}
+              canProcess={canProcess}
+              selectedNeedsLayout={selectedNeedsLayout}
+              ocrHint={ocrHint}
+              lang={lang}
+              showGuide={showGuide}
+              onLayout={() => selectedPage && runLayout([selectedPage.id])}
+              onOcr={() => selectedPage && runOCR([selectedPage.id])}
+              onDismissGuide={() => setShowGuide(false)}
+            />
+          ) : (
+            (() => {
+              if (!showGuide) return null
+              const guide = processingGuide(selectedPage, lang)
+              if (!guide) return null
+              return (
+                <div className="toolbar-guide">
+                  <span className="toolbar-guide-text">{guide}</span>
+                  <button
+                    className="toolbar-guide-dismiss"
+                    onClick={() => setShowGuide(false)}
+                    title={lang === 'ja' ? 'ガイドを非表示（設定でいつでも復活できます）' : 'Hide guide (re-enable in Settings)'}
+                    aria-label={lang === 'ja' ? 'ガイドを非表示' : 'Dismiss guide'}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )
+            })()
+          )}
           <JobBar job={job} isLoadingFiles={isLoadingFiles} fileLoadingState={fileLoadingState} lang={lang} />
 
           <div
@@ -340,8 +367,19 @@ export default function App() {
               onSelectLine={setSelectedOrder}
               onUpdateLineText={updateLineText}
               lang={lang}
+              onHide={isMobile ? undefined : () => setRightVisible(false)}
             />
           </aside>
+        )}
+        {!isMobile && !rightVisible && (
+          <button
+            className="show-right-strip"
+            onClick={() => setRightVisible(true)}
+            title={lang === 'ja' ? '翻刻パネルを表示' : 'Show transcription panel'}
+            aria-label={lang === 'ja' ? '翻刻パネルを表示' : 'Show panel'}
+          >
+            ◀
+          </button>
         )}
       </main>
 
@@ -373,6 +411,8 @@ export default function App() {
           onChangeModelVersion={setModelVersion}
           layoutVersion={layoutVersion}
           onChangeLayoutVersion={setLayoutVersion}
+          showGuide={showGuide}
+          onChangeShowGuide={setShowGuide}
         />
       )}
     </div>

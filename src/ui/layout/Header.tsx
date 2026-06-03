@@ -30,7 +30,7 @@ export function Header({ lang, onToggleLanguage, onOpenSettings, onLogoClick, on
           {lang === 'ja' ? '技術情報' : 'Technical Details'}
         </a>
         <a className="btn-header-link header-link-desktop" href="https://honkoku.org/" target="_blank" rel="noopener noreferrer">
-          {lang === 'ja' ? 'みんなで翻刻' : 'Minna de Honkoku'}
+          {lang === 'ja' ? 'みんなで翻刻 ↗' : 'Minna de Honkoku ↗'}
         </a>
         <button className="btn-icon" onClick={onOpenSettings} title={lang === 'ja' ? '設定' : 'Settings'}>
           ⚙️

@@ -12,11 +12,13 @@ interface ResultPanelProps {
   onSelectLine: (order: number) => void
   onUpdateLineText: (order: number, raw: string) => void
   lang: 'ja' | 'en'
+  // PC のみ: パネル自身を畳むボタンを表示する。モバイルはタブで切替えるので不要。
+  onHide?: () => void
 }
 
 type ViewMode = 'lines' | 'view'
 
-export function ResultPanel({ item, selectedOrder, onSelectLine, onUpdateLineText, lang }: ResultPanelProps) {
+export function ResultPanel({ item, selectedOrder, onSelectLine, onUpdateLineText, lang, onHide }: ResultPanelProps) {
   const [copied, setCopied] = useState(false)
   const [mode, setMode] = useState<ViewMode>('lines')
   const [editingOrder, setEditingOrder] = useState<number | null>(null)
@@ -167,7 +169,19 @@ export function ResultPanel({ item, selectedOrder, onSelectLine, onUpdateLineTex
   return (
     <div className="vpanel">
       <div className="vpanel-header">
-        <span className="vpanel-title">{lang === 'ja' ? '翻刻' : 'Transcription'}</span>
+        <div className="vpanel-header-left">
+          {onHide && (
+            <button
+              className="btn-mini vpanel-hide"
+              onClick={onHide}
+              title={lang === 'ja' ? '翻刻パネルを隠す' : 'Hide transcription panel'}
+              aria-label={lang === 'ja' ? '翻刻パネルを隠す' : 'Hide panel'}
+            >
+              ▶
+            </button>
+          )}
+          <span className="vpanel-title">{lang === 'ja' ? '翻刻' : 'Transcription'}</span>
+        </div>
         <div className="vpanel-tools">
           <div className="seg">
             <button className={`seg-btn ${mode === 'lines' ? 'active' : ''}`} onClick={() => setMode('lines')}>

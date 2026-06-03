@@ -25,8 +25,10 @@ const ANY_TAG_RE = /<[^>]+>/g
 export function rawToKoji(raw: string): string {
   if (!raw) return ''
   let s = raw
+  // 「／」を base の直前に挿入してふりがなの対象範囲（=「／」以降のひと固まり）を確定する。
+  // 例: ABC<ruby>漢字<rt>かんじ</rt></ruby>DEF → ABC／漢字（かんじ）DEF
   s = s.replace(RUBY_RE, (_m, base, rt, rt2) =>
-    rt2 ? `${base}（${rt}｜${rt2}）` : `${base}（${rt}）`
+    rt2 ? `／${base}（${rt}｜${rt2}）` : `／${base}（${rt}）`
   )
   s = s.replace(WARI_RE, (_m, right, left) =>
     left != null ? `《割書：${right}｜${left}》` : `《割書：${right}》`

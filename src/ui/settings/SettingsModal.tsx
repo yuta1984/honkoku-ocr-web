@@ -9,6 +9,8 @@ interface SettingsModalProps {
   onChangeModelVersion: (next: OcrModelVersion) => void
   layoutVersion: LayoutModelVersion
   onChangeLayoutVersion: (next: LayoutModelVersion) => void
+  showGuide: boolean
+  onChangeShowGuide: (next: boolean) => void
 }
 
 const OCR_VERSIONS: { value: OcrModelVersion; label: string; descJa: string; descEn: string }[] = [
@@ -21,7 +23,7 @@ const LAYOUT_VERSIONS: { value: LayoutModelVersion; label: string; descJa: strin
   { value: 'yolo',   label: 'YOLOv8', descJa: '本システムオリジナルのレイアウト認識モデル', descEn: 'Layout detection model originally developed for this system' },
 ]
 
-export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersion, layoutVersion, onChangeLayoutVersion }: SettingsModalProps) {
+export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersion, layoutVersion, onChangeLayoutVersion, showGuide, onChangeShowGuide }: SettingsModalProps) {
   const [clearing, setClearing] = useState(false)
   const [cleared, setCleared] = useState(false)
 
@@ -103,6 +105,23 @@ export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersio
                 </label>
               ))}
             </div>
+          </section>
+
+          <section className="settings-section">
+            <h3>{lang === 'ja' ? '表示' : 'Display'}</h3>
+            <label className="settings-checkbox">
+              <input
+                type="checkbox"
+                checked={showGuide}
+                onChange={(e) => onChangeShowGuide(e.target.checked)}
+              />
+              <span>{lang === 'ja' ? 'ガイドメッセージを表示する' : 'Show guide messages'}</span>
+            </label>
+            <p className="settings-description settings-checkbox-desc">
+              {lang === 'ja'
+                ? '操作ガイド（②③ などの手順説明や OCR 完了通知）を表示します。'
+                : 'Show step-by-step guidance (② ③ hints, OCR completion notices, etc.).'}
+            </p>
           </section>
 
           <section className="settings-section">
