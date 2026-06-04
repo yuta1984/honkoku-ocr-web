@@ -17,6 +17,21 @@
 
 const RUBY_RE = /<ruby>([^<]*)<rt>([^<]*)<\/rt>(?:<rt2>([^<]*)<\/rt2>)?<\/ruby>/g
 const KAERI_RE = /<KAERI>([^<]*)<\/KAERI>/g
+
+// 直前の文字が漢字かどうか（ふりがな base 直前の「／」要否判定）。
+// 暗黙ふりがなの base は「（の直前の漢字の連続」なので、直前が漢字のときだけ
+// 「／」で base の開始を明示する必要がある（直前が仮名・記号・行頭なら不要）。
+function precededByKanji(s: string, offset: number): boolean {
+  if (offset <= 0) return false
+  let cp = s.codePointAt(offset - 1)!
+  // サロゲートペアの下位を踏んだ場合は 1 つ前から取り直す
+  if (cp >= 0xdc00 && cp <= 0xdfff && offset - 2 >= 0) cp = s.codePointAt(offset - 2)!
+  return (
+    (cp >= 0x3400 && cp <= 0x9fff) || // CJK統合漢字 + 拡張A
+    (cp >= 0xf900 && cp <= 0xfaff) || // CJK互換漢字
+    (cp >= 0x20000 && cp <= 0x2fa1f)  // 拡張B以降
+  )
+}
 const OKURI_RE = /<OKURI>([^<]*)<\/OKURI>/g
 const WARI_RE = /<WARI>([^<]*?)(?:<WARI_SEP>([^<]*?))?<\/WARI>/g
 const ANY_TAG_RE = /<[^>]+>/g
@@ -25,11 +40,14 @@ const ANY_TAG_RE = /<[^>]+>/g
 export function rawToKoji(raw: string): string {
   if (!raw) return ''
   let s = raw
-  // 「／」を base の直前に挿入してふりがなの対象範囲（=「／」以降のひと固まり）を確定する。
-  // 例: ABC<ruby>漢字<rt>かんじ</rt></ruby>DEF → ABC／漢字（かんじ）DEF
-  s = s.replace(RUBY_RE, (_m, base, rt, rt2) =>
-    rt2 ? `／${base}（${rt}｜${rt2}）` : `／${base}（${rt}）`
-  )
+  // 「／」を base の直前に挿入してふりがなの対象範囲を確定する。ただし直前が漢字で
+  // 連続してしまう場合に限る（直前が仮名・記号・行頭なら暗黙規則で base が確定するため不要）。
+  // 例: 本<ruby>漢字<rt>かんじ</rt></ruby> → 本／漢字（かんじ）
+  //     は<ruby>漢字<rt>かんじ</rt></ruby> → は漢字（かんじ）
+  s = s.replace(RUBY_RE, (_m, base, rt, rt2, offset, str) => {
+    const slash = precededByKanji(str, offset) ? '／' : ''
+    return rt2 ? `${slash}${base}（${rt}｜${rt2}）` : `${slash}${base}（${rt}）`
+  })
   s = s.replace(WARI_RE, (_m, right, left) =>
     left != null ? `《割書：${right}｜${left}》` : `《割書：${right}》`
   )
