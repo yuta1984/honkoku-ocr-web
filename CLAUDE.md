@@ -24,20 +24,23 @@ Web Worker でローカル実行し、画像も結果も外部送信しない。
 | 用途 | モデル | 入出力 |
 |------|--------|--------|
 | レイアウト | `koten-layout-best.onnx`（YOLO 5クラス） | [1,3,640,640] レターボックス(pad114) → [1,9,8400]。クラス: 0全体/1手書き/2活字/3図版/4印判。**手書き・活字 box = 行** |
-| OCRエンコーダ | `kuzushiji-v12-encoder-int8.onnx`（ConvNeXt-Base+2D位置埋込）※既定 | pixel_values[1,3,**192,1536**] → encoder_hidden_states[1,**288**,512]（mw=56） |
-| OCRデコーダ prefill | `kuzushiji-v12-decoder-prefill-int8.onnx`（RoBERTa, **KVキャッシュ初期化**） | input_ids[1,1]+encoder_hidden_states → logits + present_*_{0..5}（self_k/v + cross_k/v、計24テンソル） |
-| OCRデコーダ step | `kuzushiji-v12-decoder-step-int8.onnx`（RoBERTa, **KVキャッシュ1トークン進行**） | input_ids[1,1]+encoder_hidden_states+past_*_{0..5} → logits + present_*_{0..5}。CLS=2 を prefill→以降 SEP=3 まで step を 1 token ずつ |
+| OCRエンコーダ | `kuzushiji-v13-encoder-int8.onnx`（ConvNeXt V2-Base+2D位置埋込）※既定 | pixel_values[1,3,**256,2048**] → encoder_hidden_states[1,**512**,512]（mw=72） |
+| OCRデコーダ prefill | `kuzushiji-v13-decoder-prefill-int8.onnx`（RoBERTa, **KVキャッシュ初期化**） | input_ids[1,1]+encoder_hidden_states → logits + present_*_{0..5}（self_k/v + cross_k/v、計24テンソル） |
+| OCRデコーダ step | `kuzushiji-v13-decoder-step-int8.onnx`（RoBERTa, **KVキャッシュ1トークン進行**） | input_ids[1,1]+encoder_hidden_states+past_*_{0..5} → logits + present_*_{0..5}。CLS=2 を prefill→以降 SEP=3 まで step を 1 token ずつ |
 
-OCR enc-dec は設定で **v12（既定）/ v11** を切替可能（`OcrModelVersion`、localStorage 永続）。
-v8/v7 は UI から廃止(localStorage に残っていれば v12 へ migrate)。
-- **v12** = v11レシピ + 解像度↑(192×1536, 8:1維持) + KOJI_NO_RT2(<rt2>を訓練段で除外) + **KV キャッシュ decoder**(prefill+step 2ファイル)。
+OCR enc-dec は設定で **v13（既定）/ v12 / v11** を切替可能（`OcrModelVersion`、localStorage 永続）。
+v8/v7 は UI から廃止(localStorage に残っていれば v13 へ migrate)。
+- **v13** = ConvNeXt **V2**-Base(FCMAE+GRN) + 解像度↑(256×2048, 8:1維持, enc_seq=512, mw=72) + **KV キャッシュ decoder**。
+  decoder アーキは v12 と同一(RoBERTa 512/6/8, prefill+step)。test plain CER **0.0873**(v12 0.0906 比 -3.6%)。
+  入力画素は v12 の 1.78× で encoder レイテンシも ~1.9×(decode はほぼ同等)。
+- **v12** = ConvNeXt V1 + 解像度↑(192×1536, 8:1維持) + KOJI_NO_RT2(<rt2>を訓練段で除外) + **KV キャッシュ decoder**(prefill+step 2ファイル)。
   test plain CER **0.0906**(v11 0.1000 比 -9.4%)、KV キャッシュで推論 5–10× 高速化見込み。
 - **v11** = v8レシピ + クリーンenrich。返点・送り仮名 F1 改善（返点 0.69→0.82、送り仮名 0.54→0.61）。
-**vocab は v8/v11/v12 で完全一致**（同じ roberta-mlm-v6-final トークナイザ由来）。
-**重要**: 版ごとに token id→文字 の並びが異なる（v7 と v8/v11/v12 は ~86% 違う）。版に対応する語彙を読むこと
-（v7=`config/kuzushiji-vocab.json` / v8=`-v8.json` / v11=`-v11.json` / v12=`-v12.json`、`text-recognizer.ts` の `vocabUrl`）。
+**vocab は v8/v11/v12/v13 で完全一致**（同じ roberta-mlm-v6-final トークナイザ由来。v13 の tokenizer.json と byte 一致を確認済）。
+**重要**: 版ごとに token id→文字 の並びが異なる（v7 と v8/v11/v12/v13 は ~86% 違う）。版に対応する語彙を読むこと
+（v7=`config/kuzushiji-vocab.json` / v8=`-v8.json` / v11=`-v11.json` / v12=`-v12.json` / v13=`-v13.json`、`text-recognizer.ts` の `vocabUrl`）。
 混用すると全文字が別字に化ける（v8系を v7 語彙で復号→ CER 0.40 まで悪化、正しい語彙なら 0.19）。
-v12 のみ decoder が 2 ファイル(`prefill`+`step`)に分割、`HAS_KV_CACHE_DECODER()` で分岐。
+v12/v13 は decoder が 2 ファイル(`prefill`+`step`)に分割、`HAS_KV_CACHE_DECODER()` で分岐。
 
 ### `<rt2>`（第2読み）の除去
 モデルは `<rt2>` を過剰付与する（test gold 34件に対し v11 は ~1300件、大半が読みの“両賭け”重複）。
@@ -50,6 +53,8 @@ ONNX は R2（`VITE_MODEL_BASE_URL`）から配信。**新モデル追加時は 
 - v11: `kuzushiji-v11-encoder-int8.onnx` / `kuzushiji-v11-decoder-int8.onnx`（2ファイル）
 - **v12**: `kuzushiji-v12-encoder-int8.onnx` / `kuzushiji-v12-decoder-prefill-int8.onnx` /
   `kuzushiji-v12-decoder-step-int8.onnx`（**3ファイル**。decoder が KVキャッシュ用に prefill+step に分割）
+- **v13（既定）**: `kuzushiji-v13-encoder-int8.onnx` / `kuzushiji-v13-decoder-prefill-int8.onnx` /
+  `kuzushiji-v13-decoder-step-int8.onnx`（**3ファイル**。v12 と同じ prefill+step 構成）
 
 int8 は ConvInteger/MatMulInteger を含み、onnxruntime-web(wasm) では動くが **Python CPU EP では
 ConvInteger 未実装で動かない**（parity 検証は decoder のみ、encoder は v8 と同一 op 構成で担保）。
@@ -61,7 +66,7 @@ ConvInteger 未実装で動かない**（parity 検証は decoder のみ、encod
 `demo_onnx_v7.py` 準拠。①幅>120px なら左45px crop（隣接行混入除去）②縦長なら90度
 **時計回り**回転（PIL `rotate(-90, expand)` 相当）③**高さ H** にアスペクト比保持リサイズ
 （幅は最大 **W**）④右側を白パディング ⑤/255 後 ImageNet 正規化、NCHW。
-版別の `(H, W)`: v7/v8/v11 = (128, 1024)、**v12 = (192, 1536)**。`text-recognizer.ts` の
+版別の `(H, W)`: v7/v8/v11 = (128, 1024)、v12 = (192, 1536)、**v13 = (256, 2048)**。`text-recognizer.ts` の
 `IMG_DIMS[version]` で切替。この前処理を崩すと認識精度が大きく劣化する。
 
 追加処理（text-recognizer.ts）:

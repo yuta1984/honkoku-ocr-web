@@ -17,16 +17,17 @@ const MODEL_BASE_URL = (import.meta.env.VITE_MODEL_BASE_URL as string | undefine
 // import.meta.env.BASE_URL を前置。worker から fetch しても絶対パスで正しく解決される）。
 const modelUrl = (file: string) => (MODEL_BASE_URL ? `${MODEL_BASE_URL}/${file}` : `${import.meta.env.BASE_URL}models/${file}`)
 
-// OCR enc-dec モデルは v7/v8/v11/v12 を切替可能（layout YOLO は共通）。
-// 既定は v12(192×1536 高解像度 + KOJI_NO_RT2 + KV cache decoder)。
+// OCR enc-dec モデルは v7/v8/v11/v12/v13 を切替可能（layout YOLO は共通）。
+// 既定は v13(ConvNeXt V2 + 256×2048 高解像度 + KV cache decoder)。
+// v12 = ConvNeXt V1 + 192×1536 + KOJI_NO_RT2 + KV cache。
 // v11 = v8レシピ + クリーンenrich(返点・送り仮名 F1 改善, <rt2> 過剰は decode 後処理で除去)。
 // v8/v7 は設定 UI からは廃止(localStorage に残っていれば DEFAULT へ migrate)。
 // ※ 版ごとに token id→文字 の並びが大きく異なるため、版に対応する vocab を読む必要がある
 //   （text-recognizer.ts の vocabUrl 参照）。混用すると全文字が化ける。
-// ※ v12 だけ decoder が prefill+step の2ファイル(KVキャッシュ対応で5–10×高速化)。
+// ※ v12/v13 は decoder が prefill+step の2ファイル(KVキャッシュ対応で5–10×高速化)。
 //   v7/v8/v11 は decoder 単一(use_cache=false で都度全シーケンス入力)。
-export type OcrModelVersion = 'v7' | 'v8' | 'v11' | 'v12'
-export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v12'
+export type OcrModelVersion = 'v7' | 'v8' | 'v11' | 'v12' | 'v13'
+export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v13'
 
 // レイアウト検出モデルの版。設定で切替可能（localStorage 永続化、useLayoutVersion）。
 //   yolo   = koten-layout-best.onnx       (5クラス YOLOv8。手書き/活字=行、図版/印判=領域。本システムオリジナル)
@@ -53,8 +54,15 @@ const OCR_MODEL_FILES: Record<OcrModelVersion, OcrModelFiles> = {
     decoderPrefill: 'kuzushiji-v12-decoder-prefill-int8.onnx',
     decoderStep:    'kuzushiji-v12-decoder-step-int8.onnx',
   },
+  // v13: ConvNeXt V2 + 256×2048(enc_seq=512, mw=72)。decoder アーキは v12 と同一(prefill+step KVキャッシュ)。
+  v13: {
+    encoder: 'kuzushiji-v13-encoder-int8.onnx',
+    decoderPrefill: 'kuzushiji-v13-decoder-prefill-int8.onnx',
+    decoderStep:    'kuzushiji-v13-decoder-step-int8.onnx',
+  },
 }
-export const HAS_KV_CACHE_DECODER = (version: OcrModelVersion): version is 'v12' => version === 'v12'
+export const HAS_KV_CACHE_DECODER = (version: OcrModelVersion): version is 'v12' | 'v13' =>
+  version === 'v12' || version === 'v13'
 
 // modelType + version → 配信URL と キャッシュキー。OCR/レイアウトとも version 別キーで複数キャッシュ可（切替が高速）。
 // レイアウトの cacheKey にはファイル名を含める：版内で配信ファイルを差し替えた場合に自動でキャッシュ invalidate するため。

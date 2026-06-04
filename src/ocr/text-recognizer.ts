@@ -45,12 +45,13 @@ const SKEW_DOWNSCALE = 120   // 角度推定用のダウンスケール上限(px
 const MEAN = [0.485, 0.456, 0.406]
 const STD = [0.229, 0.224, 0.225]
 
-// 版別の入力解像度。v12 は 192×1536(8:1 維持)、v7/v8/v11 は 128×1024。
+// 版別の入力解像度。v13 は 256×2048(8:1 維持)、v12 は 192×1536、v7/v8/v11 は 128×1024。
 const IMG_DIMS: Record<OcrModelVersion, { h: number; w: number }> = {
   v7:  { h: 128, w: 1024 },
   v8:  { h: 128, w: 1024 },
   v11: { h: 128, w: 1024 },
   v12: { h: 192, w: 1536 },
+  v13: { h: 256, w: 2048 },
 }
 
 // v12 decoder の KV キャッシュ層数。RoBERTa(512/6/8) → 6 layers, 各 layer に

@@ -14,7 +14,8 @@ interface SettingsModalProps {
 }
 
 const OCR_VERSIONS: { value: OcrModelVersion; label: string; descJa: string; descEn: string }[] = [
-  { value: 'v12', label: 'v12', descJa: '192×1536 高解像度 + KOJI_NO_RT2 + KV キャッシュ。test plain CER 0.0906 (v11 比 -9%)（推奨）', descEn: '192×1536 high-res + KOJI_NO_RT2 + KV cache. test plain CER 0.0906 (-9% vs v11) (recommended)' },
+  { value: 'v13', label: 'v13', descJa: 'ConvNeXt V2 + 256×2048 高解像度 + KV キャッシュ。test plain CER 0.0873 (v12 比 -3.6%)（推奨）', descEn: 'ConvNeXt V2 + 256×2048 high-res + KV cache. test plain CER 0.0873 (-3.6% vs v12) (recommended)' },
+  { value: 'v12', label: 'v12', descJa: 'ConvNeXt V1 + 192×1536 高解像度 + KOJI_NO_RT2 + KV キャッシュ。test plain CER 0.0906', descEn: 'ConvNeXt V1 + 192×1536 high-res + KOJI_NO_RT2 + KV cache. test plain CER 0.0906' },
   { value: 'v11', label: 'v11', descJa: 'ConvNeXt-Base + 拡充データ。返点・送り仮名 F1 改善（128×1024）', descEn: 'ConvNeXt-Base + enriched data. Improves kaeriten/okurigana F1 (128×1024)' },
 ]
 
