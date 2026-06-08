@@ -14,8 +14,8 @@ interface SettingsModalProps {
 }
 
 const OCR_VERSIONS: { value: OcrModelVersion; label: string; descJa: string; descEn: string }[] = [
-  { value: 'v12', label: 'v12', descJa: 'ConvNeXt V1 + 192×1536 高解像度 + KV キャッシュ。高速。test plain CER 0.0906（推奨）', descEn: 'ConvNeXt V1 + 192×1536 high-res + KV cache. Faster. test plain CER 0.0906 (recommended)' },
-  { value: 'v13', label: 'v13', descJa: 'ConvNeXt V2 + 256×2048 高解像度 + KV キャッシュ。高精度・低速。test plain CER 0.0873（v12 比 -3.6%）', descEn: 'ConvNeXt V2 + 256×2048 high-res + KV cache. Higher accuracy, slower. test plain CER 0.0873 (-3.6% vs v12)' },
+  { value: 'v13', label: 'v13', descJa: 'ConvNeXt V2 + 256×2048 高解像度 + KV キャッシュ。高精度。test plain CER 0.0873（推奨）', descEn: 'ConvNeXt V2 + 256×2048 high-res + KV cache. Highest accuracy. test plain CER 0.0873 (recommended)' },
+  { value: 'v12', label: 'v12', descJa: 'ConvNeXt V1 + 192×1536 高解像度 + KV キャッシュ。高速・軽量。test plain CER 0.0906（v13 比 +3.8%）', descEn: 'ConvNeXt V1 + 192×1536 high-res + KV cache. Faster, lighter. test plain CER 0.0906 (+3.8% vs v13)' },
 ]
 
 const LAYOUT_VERSIONS: { value: LayoutModelVersion; label: string; descJa: string; descEn: string }[] = [
