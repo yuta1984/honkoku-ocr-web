@@ -3,6 +3,7 @@ import type { PageItem, ImageStatus } from '../../types/ocr'
 import type { Language } from '../../hooks/useLang'
 import type { ExportFormat } from '../../lib/textExport'
 import { DownloadMenu } from '../common/DownloadMenu'
+import { CameraCapture } from '../camera/CameraCapture'
 
 const STATUS_LABEL: Record<ImageStatus, { ja: string; en: string; cls: string }> = {
   unprocessed: { ja: '未処理', en: 'Pending', cls: 'st-none' },
@@ -56,6 +57,7 @@ export function PageSidebar(p: PageSidebarProps) {
   // モバイル: drawer の開閉状態にアクセシビリティ属性を反映する
   const ariaHidden = p.isMobile && !p.isOpen
   const [loadingSample, setLoadingSample] = useState(false)
+  const [cameraOpen, setCameraOpen] = useState(false)
   // SAMPLE_FILES を順番にローテーション。末尾まで行ったら 0 に戻る。
   const [sampleIndex, setSampleIndex] = useState(0)
 
@@ -113,6 +115,11 @@ export function PageSidebar(p: PageSidebarProps) {
         <button className="btn btn-secondary btn-block" onClick={p.onPaste} disabled={p.isLoadingFiles}>
           {lang === 'ja' ? 'クリップボードから貼り付け' : 'Paste from clipboard'}
         </button>
+        {!p.isMobile && (
+          <button className="btn btn-secondary btn-block" onClick={() => setCameraOpen(true)} disabled={p.isLoadingFiles}>
+            {lang === 'ja' ? '📷 カメラで撮影' : '📷 Take a photo'}
+          </button>
+        )}
         <button
           className="btn btn-secondary btn-block"
           onClick={handleLoadSample}
@@ -130,6 +137,13 @@ export function PageSidebar(p: PageSidebarProps) {
           onChange={(e) => { if (e.target.files) p.onAddImages(Array.from(e.target.files)); e.target.value = '' }}
           style={{ display: 'none' }}
         />
+        {cameraOpen && (
+          <CameraCapture
+            lang={lang}
+            onCapture={(file) => p.onAddImages([file])}
+            onClose={() => setCameraOpen(false)}
+          />
+        )}
       </div>
 
       {!p.isMobile && (

@@ -830,6 +830,29 @@
 .sheet-cancel { justify-content: center; color: var(--muted); margin-top: 4px; background: transparent; }
 .sheet-cancel:hover { background: rgba(0,0,0,0.04); }
 
+/* ===== カメラ撮影モーダル (PC) ===== */
+.camera-panel { max-width: 720px; }
+.camera-stage {
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 4 / 3;
+}
+.camera-view { width: 100%; height: 100%; object-fit: contain; display: block; }
+.camera-device-select {
+  margin-top: 10px; width: 100%;
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+  font-size: 0.88rem; background: var(--panel); color: var(--ink);
+}
+.camera-actions {
+  margin-top: 14px;
+  display: flex; gap: 10px; justify-content: center;
+}
+.camera-actions .btn { min-width: 130px; }
+.camera-error { text-align: center; padding: 12px 0; }
+.camera-error p { margin: 0 0 14px; color: var(--muted); font-size: 0.9rem; line-height: 1.6; }
+
 /* ============================================================
    ===== モバイル レイアウト (≤ 768px) =====
    ============================================================ */
