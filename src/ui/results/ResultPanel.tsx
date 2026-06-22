@@ -4,6 +4,8 @@ import type { PageItem } from '../../types/ocr'
 import { rawToKoji } from '../../lib/koji'
 import { downloadPages, pageBaseName, type ExportFormat } from '../../lib/textExport'
 import { DownloadMenu } from '../common/DownloadMenu'
+import { translateToModern } from '../../lib/llm'
+import type { useLlmSettings } from '../../hooks/useLlmSettings'
 import '../../styles/koji-view.css'
 
 interface ResultPanelProps {
@@ -12,17 +14,33 @@ interface ResultPanelProps {
   onSelectLine: (order: number) => void
   onUpdateLineText: (order: number, raw: string) => void
   lang: 'ja' | 'en'
+  llm: ReturnType<typeof useLlmSettings>
   // PC のみ: パネル自身を畳むボタンを表示する。モバイルはタブで切替えるので不要。
   onHide?: () => void
+  onOpenSettings?: () => void
 }
 
-type ViewMode = 'lines' | 'view'
+type ViewMode = 'lines' | 'view' | 'modern'
 
-export function ResultPanel({ item, selectedOrder, onSelectLine, onUpdateLineText, lang, onHide }: ResultPanelProps) {
+// 翻訳キャッシュのキー用に翻刻テキストの簡易ハッシュ（再OCRで失効させる）
+function hashStr(s: string): string {
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0
+  return String(h >>> 0)
+}
+
+export function ResultPanel({ item, selectedOrder, onSelectLine, onUpdateLineText, lang, llm, onHide, onOpenSettings }: ResultPanelProps) {
   const [copied, setCopied] = useState(false)
   const [mode, setMode] = useState<ViewMode>('lines')
   const [editingOrder, setEditingOrder] = useState<number | null>(null)
   const editRef = useRef<HTMLDivElement | null>(null)
+
+  // --- 現代語訳 ---
+  const transCache = useRef<Map<string, string>>(new Map())
+  const transAbort = useRef<AbortController | null>(null)
+  const [transText, setTransText] = useState('')
+  const [transLoading, setTransLoading] = useState(false)
+  const [transErr, setTransErr] = useState<string | null>(null)
 
   const orderedLines = useMemo(
     () => (item ? [...item.lines].sort((a, b) => a.readingOrder - b.readingOrder) : []),
@@ -68,6 +86,43 @@ export function ResultPanel({ item, selectedOrder, onSelectLine, onUpdateLineTex
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setEditingOrder(null) }, [item?.id, mode])
 
+  // 現代語訳: 画像/翻刻が変わったらキャッシュ済み訳文を表示（無ければ空に）
+  const transCacheKey = item ? `${item.id}|${hashStr(kojiSource)}` : ''
+  useEffect(() => {
+    transAbort.current?.abort()
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setTransErr(null)
+    setTransLoading(false)
+    setTransText(transCacheKey ? (transCache.current.get(transCacheKey) ?? '') : '')
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [transCacheKey])
+
+  // アンマウント時に進行中の翻訳を中断
+  useEffect(() => () => transAbort.current?.abort(), [])
+
+  const handleTranslate = async () => {
+    if (!item || !kojiSource) return
+    if (!llm.apiKey) { onOpenSettings?.(); return }
+    transAbort.current?.abort()
+    const ac = new AbortController()
+    transAbort.current = ac
+    setTransErr(null); setTransLoading(true); setTransText('')
+    try {
+      let acc = ''
+      const full = await translateToModern({
+        text: kojiSource, provider: llm.provider, model: llm.model, apiKey: llm.apiKey,
+        signal: ac.signal,
+        onToken: (d) => { acc += d; setTransText(acc) },
+      })
+      transCache.current.set(transCacheKey, full)
+      setTransText(full)
+    } catch (e) {
+      if (!ac.signal.aborted) setTransErr((e as Error).message)
+    } finally {
+      if (transAbort.current === ac) { transAbort.current = null; setTransLoading(false) }
+    }
+  }
+
   const commitEdit = () => {
     if (editingOrder == null || !editRef.current) return
     const text = editRef.current.innerText.replace(/\r?\n/g, '').trim()
@@ -112,6 +167,51 @@ export function ResultPanel({ item, selectedOrder, onSelectLine, onUpdateLineTex
   } else if (mode === 'view') {
     // 閲覧モード: koji-lang で整形した HTML（ふりがな/返点/送り仮名/割書を組版表示）
     body = <div className="koji-scroll" dangerouslySetInnerHTML={{ __html: kojiHtml }} />
+  } else if (mode === 'modern') {
+    // 現代語訳モード: 翻刻全文を LLM に送り現代語訳をストリーム表示
+    body = (
+      <div className="koji-scroll modern-trans">
+        {!llm.apiKey ? (
+          <div className="vpanel-empty">
+            <p>{lang === 'ja' ? '現代語訳には LLM の APIキーが必要です。' : 'A LLM API key is required for modern translation.'}</p>
+            <button className="btn btn-secondary" onClick={() => onOpenSettings?.()}>
+              {lang === 'ja' ? '設定でAPIキーを入力' : 'Enter API key in Settings'}
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="modern-trans-bar">
+              <button className="btn btn-secondary" onClick={handleTranslate} disabled={transLoading}>
+                {transLoading
+                  ? (lang === 'ja' ? '翻訳中…' : 'Translating…')
+                  : transText
+                    ? (lang === 'ja' ? '再翻訳' : 'Re-translate')
+                    : (lang === 'ja' ? '現代語訳する' : 'Translate')}
+              </button>
+              {transText && !transLoading && (
+                <button
+                  className="btn-mini"
+                  onClick={() => { navigator.clipboard.writeText(transText).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }, () => {}) }}
+                  title={lang === 'ja' ? 'コピー' : 'Copy'}
+                >
+                  {copied ? '✓' : (lang === 'ja' ? 'コピー' : 'Copy')}
+                </button>
+              )}
+            </div>
+            {transErr && <p className="vpanel-empty" style={{ color: '#c0392b' }}>{transErr}</p>}
+            {transText ? (
+              <div className="modern-trans-text">{transText}</div>
+            ) : !transLoading && (
+              <p className="settings-description">
+                {lang === 'ja'
+                  ? 'ボタンを押すと翻刻全文を LLM に送信し、現代語訳します（翻刻テキストが外部に送信されます）。'
+                  : 'Sends the full transcription to the LLM for a modern-Japanese translation (your text leaves the browser).'}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    )
   } else {
     // 行モード: 行ごとにクリックで本文画像とハイライト連動
     body = (
@@ -189,6 +289,9 @@ export function ResultPanel({ item, selectedOrder, onSelectLine, onUpdateLineTex
             </button>
             <button className={`seg-btn ${mode === 'view' ? 'active' : ''}`} onClick={() => setMode('view')}>
               {lang === 'ja' ? '閲覧' : 'View'}
+            </button>
+            <button className={`seg-btn ${mode === 'modern' ? 'active' : ''}`} onClick={() => setMode('modern')}>
+              {lang === 'ja' ? '現代語訳' : 'Modern'}
             </button>
           </div>
           {ocrLines.length > 0 && (

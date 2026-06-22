@@ -921,3 +921,23 @@
   .header-logo { height: 24px; margin: 0 -4px 0 0; }
   .mobile-tab { padding: 8px 4px; font-size: 0.85rem; }
 }
+
+/* --- LLM 現代語訳: 設定フィールド --- */
+.settings-field { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.settings-field-label { font-size: 0.82rem; color: var(--muted); font-weight: 600; }
+.settings-field select,
+.settings-field input {
+  padding: 6px 8px;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--panel-bg, #fff);
+  color: inherit;
+}
+
+/* --- 現代語訳パネル --- */
+.modern-trans { padding: 10px 12px; }
+.modern-trans-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.modern-trans-text { white-space: pre-wrap; line-height: 1.85; font-size: 1.02rem; }

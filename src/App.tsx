@@ -6,6 +6,7 @@ import { useMediaQuery } from './hooks/useMediaQuery'
 import { useModelVersion } from './hooks/useModelVersion'
 import { useLayoutVersion } from './hooks/useLayoutVersion'
 import { useShowGuide } from './hooks/useShowGuide'
+import { useLlmSettings } from './hooks/useLlmSettings'
 import { useOCRWorker } from './hooks/useOCRWorker'
 import { usePageStore } from './hooks/usePageStore'
 import { Header } from './ui/layout/Header'
@@ -32,6 +33,7 @@ export default function App() {
   const { modelVersion, setModelVersion } = useModelVersion()
   const { layoutVersion, setLayoutVersion } = useLayoutVersion()
   const { showGuide, setShowGuide } = useShowGuide()
+  const llm = useLlmSettings()
   const { isReady, modelState, detectLayout, recognizeLines } = useOCRWorker(modelVersion, layoutVersion)
   const store = usePageStore()
   const {
@@ -367,7 +369,9 @@ export default function App() {
               onSelectLine={setSelectedOrder}
               onUpdateLineText={updateLineText}
               lang={lang}
+              llm={llm}
               onHide={isMobile ? undefined : () => setRightVisible(false)}
+              onOpenSettings={() => setShowSettings(true)}
             />
           </aside>
         )}
@@ -413,6 +417,7 @@ export default function App() {
           onChangeLayoutVersion={setLayoutVersion}
           showGuide={showGuide}
           onChangeShowGuide={setShowGuide}
+          llm={llm}
         />
       )}
     </div>
