@@ -34,7 +34,10 @@ const STORAGE_MODES: { value: StorageMode; labelJa: string; labelEn: string; des
   { value: 'encrypted', labelJa: 'パスフレーズで暗号化保存', labelEn: 'Passphrase-encrypted', descJa: 'AES-GCM 暗号化して保存（at restで保護・セッション毎にパスフレーズ入力）', descEn: 'AES-GCM encrypted at rest (enter passphrase each session)' },
 ]
 
+type SettingsTab = 'recognition' | 'translation' | 'general'
+
 export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersion, layoutVersion, onChangeLayoutVersion, showGuide, onChangeShowGuide, llm }: SettingsModalProps) {
+  const [tab, setTab] = useState<SettingsTab>('recognition')
   const [clearing, setClearing] = useState(false)
   const [cleared, setCleared] = useState(false)
 
@@ -122,7 +125,20 @@ export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersio
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
 
+        <div className="settings-tabs" role="tablist">
+          <button className={`settings-tab${tab === 'recognition' ? ' active' : ''}`} role="tab" aria-selected={tab === 'recognition'} onClick={() => setTab('recognition')}>
+            {ja ? '認識' : 'Recognition'}
+          </button>
+          <button className={`settings-tab${tab === 'translation' ? ' active' : ''}`} role="tab" aria-selected={tab === 'translation'} onClick={() => setTab('translation')}>
+            {ja ? '現代語訳' : 'Translation'}
+          </button>
+          <button className={`settings-tab${tab === 'general' ? ' active' : ''}`} role="tab" aria-selected={tab === 'general'} onClick={() => setTab('general')}>
+            {ja ? '表示・その他' : 'General'}
+          </button>
+        </div>
+
         <div className="panel-body">
+          {tab === 'recognition' && <>
           <section className="settings-section">
             <h3>{ja ? 'OCRモデル' : 'OCR Model'}</h3>
             <p className="settings-description">
@@ -174,7 +190,9 @@ export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersio
               ))}
             </div>
           </section>
+          </>}
 
+          {tab === 'translation' && <>
           <section className="settings-section">
             <h3>{ja ? '現代語訳（LLM）' : 'Modern translation (LLM)'}</h3>
             <p className="settings-description">
@@ -256,7 +274,9 @@ export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersio
                 : '⚠ The API key is stored in your browser and sent to the provider over HTTPS when translating. Your transcription is also sent to the external LLM (your content leaves the browser). On shared devices, prefer session-only or encrypted storage.'}
             </p>
           </section>
+          </>}
 
+          {tab === 'general' && <>
           <section className="settings-section">
             <h3>{ja ? '表示' : 'Display'}</h3>
             <label className="settings-checkbox">
@@ -293,6 +313,7 @@ export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersio
                   : (ja ? 'モデルキャッシュをクリア' : 'Clear Model Cache')}
             </button>
           </section>
+          </>}
         </div>
       </div>
     </div>

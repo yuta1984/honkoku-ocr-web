@@ -707,6 +707,14 @@
   padding: 14px 18px; border-bottom: 1px solid var(--line);
 }
 .btn-close { background: none; border: none; font-size: 1.1rem; color: var(--muted); }
+.settings-tabs { display: flex; gap: 0; padding: 0 18px; border-bottom: 1px solid var(--line); }
+.settings-tab {
+  flex: 1 1 0; background: none; border: none; cursor: pointer;
+  padding: 11px 8px; font-size: 0.86rem; color: var(--muted);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.settings-tab:hover { color: var(--text, inherit); }
+.settings-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
 .panel-body { padding: 18px; }
 .settings-section h3 { font-size: 0.95rem; margin-bottom: 6px; }
 .settings-section + .settings-section { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
