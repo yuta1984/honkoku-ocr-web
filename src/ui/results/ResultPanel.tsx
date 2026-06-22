@@ -173,10 +173,18 @@ export function ResultPanel({ item, selectedOrder, onSelectLine, onUpdateLineTex
       <div className="koji-scroll modern-trans">
         {!llm.apiKey ? (
           <div className="vpanel-empty">
-            <p>{lang === 'ja' ? '現代語訳には LLM の APIキーが必要です。' : 'A LLM API key is required for modern translation.'}</p>
-            <button className="btn btn-secondary" onClick={() => onOpenSettings?.()}>
-              {lang === 'ja' ? '設定でAPIキーを入力' : 'Enter API key in Settings'}
-            </button>
+            {lang === 'ja' ? (
+              <p>
+                現代語訳の生成にはAPIキーの
+                <button type="button" className="link-btn" onClick={() => onOpenSettings?.()}>設定</button>
+                が必要です
+              </p>
+            ) : (
+              <p>
+                Generating a modern translation requires an API key.{' '}
+                <button type="button" className="link-btn" onClick={() => onOpenSettings?.()}>Open settings</button>
+              </p>
+            )}
           </div>
         ) : (
           <>
