@@ -36,8 +36,15 @@ const STORAGE_MODES: { value: StorageMode; labelJa: string; labelEn: string; des
 
 type SettingsTab = 'recognition' | 'translation' | 'general'
 
+const TAB_KEY = 'honkoku_settings_tab'
+function getInitialTab(): SettingsTab {
+  const v = localStorage.getItem(TAB_KEY)
+  return v === 'translation' || v === 'general' ? v : 'recognition'
+}
+
 export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersion, layoutVersion, onChangeLayoutVersion, showGuide, onChangeShowGuide, llm }: SettingsModalProps) {
-  const [tab, setTab] = useState<SettingsTab>('recognition')
+  const [tab, setTabState] = useState<SettingsTab>(getInitialTab)
+  const setTab = (t: SettingsTab) => { localStorage.setItem(TAB_KEY, t); setTabState(t) }
   const [clearing, setClearing] = useState(false)
   const [cleared, setCleared] = useState(false)
 
