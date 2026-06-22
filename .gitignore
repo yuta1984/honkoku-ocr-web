@@ -29,3 +29,6 @@ samples/
 *.sln
 *.sw?
 
+
+# wrangler local (miniflare) state
+.wrangler/
