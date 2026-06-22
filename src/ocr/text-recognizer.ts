@@ -52,6 +52,7 @@ const IMG_DIMS: Record<OcrModelVersion, { h: number; w: number }> = {
   v11: { h: 128, w: 1024 },
   v12: { h: 192, w: 1536 },
   v13: { h: 256, w: 2048 },
+  v16fs: { h: 256, w: 2048 },   // v13 と同型(解像度・mw=72 同じ)、語彙のみ 7710 へ拡張
 }
 
 // v12 decoder の KV キャッシュ層数。RoBERTa(512/6/8) → 6 layers, 各 layer に

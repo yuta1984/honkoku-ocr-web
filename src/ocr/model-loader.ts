@@ -26,8 +26,11 @@ const modelUrl = (file: string) => (MODEL_BASE_URL ? `${MODEL_BASE_URL}/${file}`
 //   （text-recognizer.ts の vocabUrl 参照）。混用すると全文字が化ける。
 // ※ v12/v13 は decoder が prefill+step の2ファイル(KVキャッシュ対応で5–10×高速化)。
 //   v7/v8/v11 は decoder 単一(use_cache=false で都度全シーケンス入力)。
-export type OcrModelVersion = 'v7' | 'v8' | 'v11' | 'v12' | 'v13'
-export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v13'
+// v16fs = v13 と同型(ConvNeXt V2 + 256×2048 + KV cache)だが、語彙を 5000→7710 に拡張し
+//   旧字/異体字を忠実保存(旧字→新字変換 OFF)・MLM事前訓練付きで完全ゼロから再学習。
+//   test plain CER 0.0801(v13 0.0873 を上回る)。既定。
+export type OcrModelVersion = 'v7' | 'v8' | 'v11' | 'v12' | 'v13' | 'v16fs'
+export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v16fs'
 
 // レイアウト検出モデルの版。設定で切替可能（localStorage 永続化、useLayoutVersion）。
 //   yolo   = koten-layout-best.onnx       (5クラス YOLOv8。手書き/活字=行、図版/印判=領域。本システムオリジナル)
@@ -60,9 +63,15 @@ const OCR_MODEL_FILES: Record<OcrModelVersion, OcrModelFiles> = {
     decoderPrefill: 'kuzushiji-v13-decoder-prefill-int8.onnx',
     decoderStep:    'kuzushiji-v13-decoder-step-int8.onnx',
   },
+  // v16fs: v13 と完全同型(256×2048, enc_seq=512, mw=72, RoBERTa 512/6/8)。語彙 7710 へ拡張。
+  v16fs: {
+    encoder: 'kuzushiji-v16fs-encoder-int8.onnx',
+    decoderPrefill: 'kuzushiji-v16fs-decoder-prefill-int8.onnx',
+    decoderStep:    'kuzushiji-v16fs-decoder-step-int8.onnx',
+  },
 }
-export const HAS_KV_CACHE_DECODER = (version: OcrModelVersion): version is 'v12' | 'v13' =>
-  version === 'v12' || version === 'v13'
+export const HAS_KV_CACHE_DECODER = (version: OcrModelVersion): version is 'v12' | 'v13' | 'v16fs' =>
+  version === 'v12' || version === 'v13' || version === 'v16fs'
 
 // modelType + version → 配信URL と キャッシュキー。OCR/レイアウトとも version 別キーで複数キャッシュ可（切替が高速）。
 // レイアウトの cacheKey にはファイル名を含める：版内で配信ファイルを差し替えた場合に自動でキャッシュ invalidate するため。
