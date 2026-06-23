@@ -285,6 +285,16 @@
 .osd-host { position: absolute; inset: 0; z-index: 0; }
 
 /* 選択行の編集レイヤー（移動面 + リサイズハンドル + 削除ボタン） */
+/* 領域選択（範囲指定レイアウト/削除） */
+.osd-select-region, .osd-select-draw {
+  position: absolute; pointer-events: none;
+  border: 2px dashed #e0a800;
+  background: rgba(224, 168, 0, 0.12);
+  border-radius: 2px;
+}
+.osd-select-region { z-index: 36; }
+.osd-select-draw { z-index: 46; background: rgba(224, 168, 0, 0.18); }
+
 .edit-layer { position: absolute; z-index: 40; }
 .edit-move {
   position: absolute; inset: 0;
@@ -688,6 +698,9 @@
 .btn-vb-arrow { font-size: 1rem; padding: 2px 10px; line-height: 1.2; }
 .btn-vb-del { color: var(--hand); border-color: #e3b6b4; }
 .btn-vb-add { color: var(--ok); border-color: #bfe0c6; }
+.btn-vb-region { color: #a87800; border-color: #e8cd7a; }
+.btn-vb-region.has-region { background: #fff8e1; }
+.btn-vb-region.active { background: #e0a800; color: #fff; border-color: #e0a800; }
 
 /* ===== 設定モーダル ===== */
 .panel-overlay {

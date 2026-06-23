@@ -21,6 +21,8 @@ import { SettingsModal } from './ui/settings/SettingsModal'
 import { ImageSourcePicker } from './ui/mobile/ImageSourcePicker'
 import { processingGuide } from './lib/processing-guide'
 import { decodeBlobToImageData } from './lib/imageLoader'
+import { rectsOverlap } from './lib/geometry'
+import type { BoundingBox } from './types/ocr'
 import { downloadPages, type ExportFormat } from './lib/textExport'
 import './styles/app.css'
 
@@ -40,7 +42,7 @@ export default function App() {
     pages, selectedId, selectedPage, selectedOrder, setSelectedOrder, selectedDataUrl,
     isLoadingFiles, fileLoadingState, pagesRef, getBlob,
     addImages, handlePaste, selectPage, clearAll, removePage, updatePage, updateLine, updateLineText, deleteLine,
-    swapOrder, addLine,
+    deleteLinesInRegion, swapOrder, addLine,
   } = store
 
   const [job, setJob] = useState<JobProgress>(idleJob)
@@ -50,9 +52,26 @@ export default function App() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [mobileTab, setMobileTab] = useState<'viewer' | 'result'>('viewer')
   const [showSourcePicker, setShowSourcePicker] = useState(false)
+  // 領域選択（範囲指定レイアウト/削除）
+  const [selectedRegion, setSelectedRegion] = useState<BoundingBox | null>(null)
+  const [regionMode, setRegionMode] = useState(false)
   const sourceInputRef = useRef<HTMLInputElement>(null)
   const imageViewerRef = useRef<ImageViewerHandle | null>(null)
   const { dragOver, dropProps } = useFileDrop(addImages)
+
+  // 領域がドローされたら確定し、ドローモードを抜ける（null=解除）
+  const handleRegionDraw = useCallback((b: BoundingBox | null) => {
+    setSelectedRegion(b)
+    setRegionMode(false)
+  }, [])
+
+  // 画像を切り替えたら領域選択をリセット
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setSelectedRegion(null)
+    setRegionMode(false)
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [selectedId])
 
   // 「行を追加」時は ImageViewer から現在の可視領域を取得して addLine に渡す。
   // これにより、ズームインしている領域の中央に新規 bbox が置かれる。
@@ -88,9 +107,11 @@ export default function App() {
   }, [job.active, job.kind, isMobile])
 
   // --- レイアウト認識 ---
-  const runLayout = useCallback(async (ids: string[]) => {
+  // region 指定時は単一ページの選択領域のみ再検出し、領域外の既存行/領域は温存する。
+  const runLayout = useCallback(async (ids: string[], region?: BoundingBox) => {
     const targets = ids.filter((id) => pagesRef.current.some((p) => p.id === id))
     if (targets.length === 0) return
+    const useRegion = region && targets.length === 1
     setJob({ active: true, kind: 'layout', current: 0, total: targets.length, stage: 'レイアウト認識', detail: 0, message: '' })
     for (let i = 0; i < targets.length; i++) {
       const id = targets[i]
@@ -100,7 +121,13 @@ export default function App() {
       setJob((j) => ({ ...j, current: i + 1, detail: 0, message: `${page.fileName} を解析中...` }))
       try {
         const imageData = await decodeBlobToImageData(blob)
-        const { lines, regions } = await detectLayout(imageData)
+        const { lines, regions } = useRegion
+          ? await detectLayout(imageData, {
+              region,
+              mergeLines: page.lines.filter((l) => !rectsOverlap(l, region)),
+              mergeRegions: page.regions.filter((r) => !rectsOverlap(r, region)),
+            })
+          : await detectLayout(imageData)
         updatePage(id, { lines, regions, status: 'layout' })
       } catch (err) {
         console.error('layout failed', err)
@@ -277,7 +304,7 @@ export default function App() {
               ocrHint={ocrHint}
               lang={lang}
               showGuide={showGuide}
-              onLayout={() => selectedPage && runLayout([selectedPage.id])}
+              onLayout={() => selectedPage && runLayout([selectedPage.id], selectedRegion ?? undefined)}
               onOcr={() => selectedPage && runOCR([selectedPage.id])}
               onDismissGuide={() => setShowGuide(false)}
             />
@@ -326,6 +353,9 @@ export default function App() {
                 onSelectLine={setSelectedOrder}
                 onUpdateLine={updateLine}
                 onDeleteLine={deleteLine}
+                regionMode={regionMode}
+                selectedRegion={selectedRegion}
+                onRegionDraw={handleRegionDraw}
               />
             ) : (
               <div className="viewer-placeholder">
@@ -349,11 +379,17 @@ export default function App() {
           {selectedPage && selectedPage.status !== 'unprocessed' && (
             <ViewerBottomBar
               hasSelection={selectedOrder != null}
+              hasRegion={selectedRegion != null}
+              regionMode={regionMode}
               lang={lang}
               onReorderLater={() => swapOrder('later')}
               onReorderEarlier={() => swapOrder('earlier')}
-              onDelete={() => { if (selectedOrder != null) deleteLine(selectedOrder) }}
+              onDelete={() => {
+                if (selectedRegion) deleteLinesInRegion(selectedRegion)
+                else if (selectedOrder != null) deleteLine(selectedOrder)
+              }}
               onAddLine={handleAddLine}
+              onToggleRegion={() => setRegionMode((m) => !m)}
             />
           )}
         </section>

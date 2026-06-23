@@ -15,6 +15,7 @@ import type { OcrModelVersion, LayoutModelVersion } from './model-loader'
 import { LayoutDetector } from './layout-detector'
 import { ReadingOrderProcessor } from './reading-order'
 import type { WorkerInMessage, WorkerOutMessage } from '../types/worker'
+import type { LineBox, RegionBox, BoundingBox } from '../types/ocr'
 
 class LayoutWorker {
   private detector: LayoutDetector | null = null
@@ -72,16 +73,49 @@ class LayoutWorker {
     }
   }
 
-  async detect(id: string, imageData: ImageData): Promise<void> {
+  async detect(
+    id: string,
+    imageData: ImageData,
+    region?: BoundingBox,
+    mergeLines?: LineBox[],
+    mergeRegions?: RegionBox[],
+  ): Promise<void> {
     try {
       if (!this.initialized) await this.initialize()
-      const { lines, regions } = await this.detector!.detect(imageData)
-      const ordered = this.readingOrder.orderLines(lines)
-      this.post({ type: 'LAYOUT_DONE', id, lines: ordered, regions })
+      let detImg = imageData
+      let offX = 0, offY = 0
+      if (region) {
+        const x = Math.max(0, Math.min(imageData.width - 1, Math.round(region.x)))
+        const y = Math.max(0, Math.min(imageData.height - 1, Math.round(region.y)))
+        const w = Math.max(1, Math.min(imageData.width - x, Math.round(region.width)))
+        const h = Math.max(1, Math.min(imageData.height - y, Math.round(region.height)))
+        detImg = cropImageData(imageData, x, y, w, h)
+        offX = x; offY = y
+      }
+      const { lines, regions } = await this.detector!.detect(detImg)
+      // crop 座標 → 全体座標へ戻す
+      const offLines = region ? lines.map((l) => ({ ...l, x: l.x + offX, y: l.y + offY })) : lines
+      const offRegions = region ? regions.map((r) => ({ ...r, x: r.x + offX, y: r.y + offY })) : regions
+      // 領域外の既存要素と統合（読み順は全体で再計算）
+      const allLines = mergeLines && mergeLines.length ? [...mergeLines, ...offLines] : offLines
+      const allRegions = mergeRegions && mergeRegions.length ? [...mergeRegions, ...offRegions] : offRegions
+      const ordered = this.readingOrder.orderLines(allLines)
+      this.post({ type: 'LAYOUT_DONE', id, lines: ordered, regions: allRegions })
     } catch (error) {
       this.post({ type: 'LAYOUT_ERROR', id, error: (error as Error).message })
     }
   }
+}
+
+/** ImageData の (x,y,w,h) 部分を画素スライスで切り出す（worker 内に DOM canvas が無いため）。 */
+function cropImageData(img: ImageData, x: number, y: number, w: number, h: number): ImageData {
+  const out = new Uint8ClampedArray(w * h * 4)
+  const sw = img.width
+  for (let row = 0; row < h; row++) {
+    const s = ((y + row) * sw + x) * 4
+    out.set(img.data.subarray(s, s + w * 4), row * w * 4)
+  }
+  return new ImageData(out, w, h)
 }
 
 const worker = new LayoutWorker()
@@ -95,7 +129,7 @@ self.onmessage = async (event: MessageEvent<WorkerInMessage>) => {
       await worker.initialize()
       break
     case 'LAYOUT_DETECT':
-      await worker.detect(msg.id, msg.imageData)
+      await worker.detect(msg.id, msg.imageData, msg.region, msg.mergeLines, msg.mergeRegions)
       break
     case 'TERMINATE':
       self.close()

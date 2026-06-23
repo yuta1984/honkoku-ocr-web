@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
-import type { LayoutResult, LineBox, ModelState } from '../types/ocr'
+import type { LayoutResult, LineBox, RegionBox, BoundingBox, ModelState } from '../types/ocr'
 import type { WorkerInMessage, WorkerOutMessage } from '../types/worker'
 import type { RecWorkerInMessage, RecWorkerOutMessage, RecJob } from '../types/recognition-worker'
 import type { OcrModelVersion, LayoutModelVersion } from '../ocr/model-loader'
@@ -141,17 +141,27 @@ export function useOCRWorker(modelVersion: OcrModelVersion, layoutVersion: Layou
     }
   }, [modelVersion, layoutVersion])
 
-  /** レイアウト認識（行/領域検出 + 読み順）。読み順付きの行を返す。 */
-  const detectLayout = useCallback((imageData: ImageData): Promise<LayoutResult> => {
-    return new Promise((resolve, reject) => {
-      const worker = ocrWorkerRef.current
-      if (!worker) return reject(new Error('Worker not ready'))
-      const id = `layout-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-      layoutPending.current.set(id, { resolve, reject })
-      // imageData は他フェーズでも使うため転送せず構造化クローンで送る
-      worker.postMessage({ type: 'LAYOUT_DETECT', id, imageData } satisfies WorkerInMessage)
-    })
-  }, [])
+  /** レイアウト認識（行/領域検出 + 読み順）。読み順付きの行を返す。
+   *  opts.region を渡すとその領域のみ検出し、領域外の既存要素(mergeLines/mergeRegions)と統合する。 */
+  const detectLayout = useCallback(
+    (
+      imageData: ImageData,
+      opts?: { region?: BoundingBox; mergeLines?: LineBox[]; mergeRegions?: RegionBox[] },
+    ): Promise<LayoutResult> => {
+      return new Promise((resolve, reject) => {
+        const worker = ocrWorkerRef.current
+        if (!worker) return reject(new Error('Worker not ready'))
+        const id = `layout-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+        layoutPending.current.set(id, { resolve, reject })
+        // imageData は他フェーズでも使うため転送せず構造化クローンで送る
+        worker.postMessage({
+          type: 'LAYOUT_DETECT', id, imageData,
+          region: opts?.region, mergeLines: opts?.mergeLines, mergeRegions: opts?.mergeRegions,
+        } satisfies WorkerInMessage)
+      })
+    },
+    [],
+  )
 
   /**
    * OCR 認識: 行 crop を N 本の認識ワーカーに分配し、enc-dec greedy で認識。

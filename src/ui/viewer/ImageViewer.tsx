@@ -13,6 +13,10 @@ interface ImageViewerProps {
   onSelectLine: (order: number | null) => void
   onUpdateLine: (order: number, box: BoundingBox) => void
   onDeleteLine: (order: number) => void
+  // 領域選択（範囲指定レイアウト/削除）
+  regionMode: boolean
+  selectedRegion: BoundingBox | null
+  onRegionDraw: (region: BoundingBox | null) => void
 }
 
 /** 親から命令的に呼べる API（行追加時の可視領域取得などに使う） */
@@ -35,6 +39,7 @@ const MIN_SIZE = 6
 
 export const ImageViewer = forwardRef<ImageViewerHandle, ImageViewerProps>(function ImageViewer({
   dataUrl, lines, regions, showOverlays, selectedOrder, onSelectLine, onUpdateLine, onDeleteLine,
+  regionMode, selectedRegion, onRegionDraw,
 }, ref) {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<OpenSeadragon.Viewer | null>(null)
@@ -42,6 +47,8 @@ export const ImageViewer = forwardRef<ImageViewerHandle, ImageViewerProps>(funct
   const [isOpen, setIsOpen] = useState(false)
   const [hover, setHover] = useState<HoverState | null>(null)
   const [selBox, setSelBox] = useState<ScreenRect | null>(null)
+  const [drawRect, setDrawRect] = useState<ScreenRect | null>(null)       // ドロー中の矩形（host座標）
+  const [regionScreen, setRegionScreen] = useState<ScreenRect | null>(null) // 確定領域の画面矩形
 
   // 最新 props をハンドラから参照する ref
   const onSelectRef = useRef(onSelectLine)
@@ -52,12 +59,16 @@ export const ImageViewer = forwardRef<ImageViewerHandle, ImageViewerProps>(funct
   const selOrderRef = useRef(selectedOrder)
   const editDraftRef = useRef<BoundingBox | null>(null)
   const recomputeRef = useRef<() => void>(() => {})
+  const regionModeRef = useRef(regionMode)
+  const regionRef = useRef(selectedRegion)
+  const onRegionDrawRef = useRef(onRegionDraw)
   useEffect(() => { onSelectRef.current = onSelectLine }, [onSelectLine])
   useEffect(() => { onUpdateRef.current = onUpdateLine }, [onUpdateLine])
   useEffect(() => { onDeleteRef.current = onDeleteLine }, [onDeleteLine])
   useEffect(() => { linesRef.current = lines }, [lines])
   useEffect(() => { showRef.current = showOverlays }, [showOverlays])
   useEffect(() => { selOrderRef.current = selectedOrder }, [selectedOrder])
+  useEffect(() => { onRegionDrawRef.current = onRegionDraw }, [onRegionDraw])
 
   // 親から呼び出し可能な API。「行を追加」時の可視領域取得に使う。
   useImperativeHandle(ref, () => ({
@@ -92,7 +103,26 @@ export const ImageViewer = forwardRef<ImageViewerHandle, ImageViewerProps>(funct
     if (!line) { setSelBox(null); return }
     setSelBox(rectToScreen(line))
   }, [rectToScreen])
-  useEffect(() => { recomputeRef.current = recomputeSelBox }, [recomputeSelBox])
+
+  // 確定領域の画面矩形を再計算（領域変更・パン/ズーム時）
+  const recomputeRegionBox = useCallback(() => {
+    const viewer = viewerRef.current
+    const rg = regionRef.current
+    if (!viewer || !rg || !viewer.world.getItemAt(0)) { setRegionScreen(null); return }
+    setRegionScreen(rectToScreen(rg))
+  }, [rectToScreen])
+
+  useEffect(() => { recomputeRef.current = () => { recomputeSelBox(); recomputeRegionBox() } }, [recomputeSelBox, recomputeRegionBox])
+  // 領域 prop 変化で ref 更新 + 再計算
+  useEffect(() => { regionRef.current = selectedRegion; recomputeRegionBox() }, [selectedRegion, isOpen, recomputeRegionBox])
+  // 領域モードの ON/OFF で OSD のパン/ズームを抑止しカーソルを変える
+  useEffect(() => {
+    regionModeRef.current = regionMode
+    const viewer = viewerRef.current
+    if (viewer) viewer.setMouseNavEnabled(!regionMode)
+    if (hostRef.current) hostRef.current.style.cursor = regionMode ? 'crosshair' : ''
+    if (!regionMode) setDrawRect(null)
+  }, [regionMode])
 
   // ビューア生成（1回）+ 選択クリック + ホバーポップアップ + viewport追従
   useEffect(() => {
@@ -111,7 +141,7 @@ export const ImageViewer = forwardRef<ImageViewerHandle, ImageViewerProps>(funct
     // ホバーで行翻刻ポップアップ（bbox右に縦書き）
     let lastHover = -1
     const onMove = (e: PointerEvent) => {
-      if (!showRef.current || !viewer.world.getItemAt(0)) { if (lastHover !== -1) { lastHover = -1; setHover(null) } return }
+      if (regionModeRef.current || !showRef.current || !viewer.world.getItemAt(0)) { if (lastHover !== -1) { lastHover = -1; setHover(null) } return }
       const pt = imgPoint(e.clientX, e.clientY)
       const found = linesRef.current.find((l) => pt.x >= l.x && pt.x <= l.x + l.width && pt.y >= l.y && pt.y <= l.y + l.height)
       if (!found || found.raw == null) { if (lastHover !== -1) { lastHover = -1; setHover(null) } return }
@@ -123,27 +153,72 @@ export const ImageViewer = forwardRef<ImageViewerHandle, ImageViewerProps>(funct
 
     // クリック（移動少）で行選択。ドラッグはOSDのパンに任せる。
     let down: { x: number; y: number } | null = null
-    const onDown = (e: PointerEvent) => { down = { x: e.clientX, y: e.clientY } }
+    const onDown = (e: PointerEvent) => { if (regionModeRef.current) return; down = { x: e.clientX, y: e.clientY } }
     const onUp = (e: PointerEvent) => {
-      if (!down) return
+      if (regionModeRef.current || !down) return
       const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y)
       down = null
       if (moved > 5 || !showRef.current || !viewer.world.getItemAt(0)) return
       const pt = imgPoint(e.clientX, e.clientY)
+      // 領域が選択されているとき、領域外クリックで領域を解除（行選択はしない）
+      const rg = regionRef.current
+      if (rg && !(pt.x >= rg.x && pt.x <= rg.x + rg.width && pt.y >= rg.y && pt.y <= rg.y + rg.height)) {
+        onRegionDrawRef.current(null); return
+      }
       const hit = linesRef.current.find((l) => pt.x >= l.x && pt.x <= l.x + l.width && pt.y >= l.y && pt.y <= l.y + l.height)
-      // 行をクリックで選択、行の外（領域外）をクリックで選択解除
       onSelectRef.current(hit ? hit.readingOrder : null)
     }
+
+    // 領域ドロー（regionMode 中）: host 上でドラッグして範囲を囲む
+    let drawStart: { x: number; y: number } | null = null  // client 座標
+    const onRegionDown = (e: PointerEvent) => {
+      if (!regionModeRef.current || !viewer.world.getItemAt(0)) return
+      drawStart = { x: e.clientX, y: e.clientY }
+      host.setPointerCapture?.(e.pointerId)
+      setDrawRect({ left: 0, top: 0, width: 0, height: 0 })
+    }
+    const onRegionMove = (e: PointerEvent) => {
+      if (!drawStart) return
+      const r = host.getBoundingClientRect()
+      const x1 = drawStart.x - r.left, y1 = drawStart.y - r.top
+      const x2 = e.clientX - r.left, y2 = e.clientY - r.top
+      setDrawRect({ left: Math.min(x1, x2), top: Math.min(y1, y2), width: Math.abs(x2 - x1), height: Math.abs(y2 - y1) })
+    }
+    const onRegionUp = (e: PointerEvent) => {
+      if (!drawStart) return
+      const start = drawStart; drawStart = null
+      setDrawRect(null)
+      const item = viewer.world.getItemAt(0)
+      if (!item) { onRegionDrawRef.current(null); return }
+      const a = imgPoint(start.x, start.y)
+      const b = imgPoint(e.clientX, e.clientY)
+      const content = item.getContentSize()
+      const x = Math.max(0, Math.min(a.x, b.x))
+      const y = Math.max(0, Math.min(a.y, b.y))
+      const x2 = Math.min(content.x, Math.max(a.x, b.x))
+      const y2 = Math.min(content.y, Math.max(a.y, b.y))
+      const w = x2 - x, h = y2 - y
+      onRegionDrawRef.current(w >= 4 && h >= 4
+        ? { x: Math.round(x), y: Math.round(y), width: Math.round(w), height: Math.round(h) }
+        : null)
+    }
+
     host.addEventListener('pointermove', onMove)
     host.addEventListener('pointerleave', onLeave)
     host.addEventListener('pointerdown', onDown)
     host.addEventListener('pointerup', onUp)
+    host.addEventListener('pointerdown', onRegionDown)
+    host.addEventListener('pointermove', onRegionMove)
+    host.addEventListener('pointerup', onRegionUp)
 
     return () => {
       host.removeEventListener('pointermove', onMove)
       host.removeEventListener('pointerleave', onLeave)
       host.removeEventListener('pointerdown', onDown)
       host.removeEventListener('pointerup', onUp)
+      host.removeEventListener('pointerdown', onRegionDown)
+      host.removeEventListener('pointermove', onRegionMove)
+      host.removeEventListener('pointerup', onRegionUp)
       viewer.destroy()
       viewerRef.current = null
     }
@@ -250,6 +325,15 @@ export const ImageViewer = forwardRef<ImageViewerHandle, ImageViewerProps>(funct
   return (
     <div className="osd-root">
       <div className="osd-host" ref={hostRef} />
+
+      {/* 確定した選択領域（範囲指定レイアウト/削除の対象） */}
+      {regionScreen && !drawRect && (
+        <div className="osd-select-region" style={{ left: regionScreen.left, top: regionScreen.top, width: regionScreen.width, height: regionScreen.height }} />
+      )}
+      {/* ドロー中のライブ矩形 */}
+      {drawRect && (
+        <div className="osd-select-draw" style={{ left: drawRect.left, top: drawRect.top, width: drawRect.width, height: drawRect.height }} />
+      )}
 
       {/* 選択行の編集レイヤー（移動面 + リサイズハンドル + 削除） */}
       {selBox && (

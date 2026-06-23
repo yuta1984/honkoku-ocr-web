@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import type { PageItem, ProcessedImage, BoundingBox, LineBox } from '../types/ocr'
 import { useFileProcessor } from './useFileProcessor'
+import { rectsOverlap } from '../lib/geometry'
 
 /**
  * 画像ページの状態・選択・行bbox編集・画像データ(Blob)管理をまとめたストア。
@@ -150,6 +151,19 @@ export function usePageStore() {
     setSelectedOrder(null)
   }, [selectedId])
 
+  // 選択領域と重なる行をすべて削除し、残りの読み順を 1..N に詰め直す。
+  const deleteLinesInRegion = useCallback((region: BoundingBox) => {
+    setPages((prev) => prev.map((p) => {
+      if (p.id !== selectedId) return p
+      const remaining = p.lines
+        .filter((l) => !rectsOverlap(l, region))
+        .sort((a, b) => a.readingOrder - b.readingOrder)
+        .map((l, i) => ({ ...l, readingOrder: i + 1 }))
+      return { ...p, lines: remaining }
+    }))
+    setSelectedOrder(null)
+  }, [selectedId])
+
   // 選択行の読み順を隣と入替（later=後ろへ +1 / earlier=前へ -1）。選択は同じ行に追従。
   const swapOrder = useCallback((dir: 'later' | 'earlier') => {
     if (selectedOrder == null || !selectedId) return
@@ -217,6 +231,6 @@ export function usePageStore() {
     isLoadingFiles, fileLoadingState,
     pagesRef, getBlob,
     addImages, handlePaste, selectPage, clearAll, removePage, updatePage, updateLine, updateLineText, deleteLine,
-    swapOrder, addLine,
+    deleteLinesInRegion, swapOrder, addLine,
   }
 }
