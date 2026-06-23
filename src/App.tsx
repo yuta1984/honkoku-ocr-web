@@ -21,7 +21,6 @@ import { SettingsModal } from './ui/settings/SettingsModal'
 import { ImageSourcePicker } from './ui/mobile/ImageSourcePicker'
 import { processingGuide } from './lib/processing-guide'
 import { decodeBlobToImageData } from './lib/imageLoader'
-import { rectsOverlap } from './lib/geometry'
 import type { BoundingBox } from './types/ocr'
 import { downloadPages, type ExportFormat } from './lib/textExport'
 import './styles/app.css'
@@ -107,7 +106,8 @@ export default function App() {
   }, [job.active, job.kind, isMobile])
 
   // --- レイアウト認識 ---
-  // region 指定時は単一ページの選択領域のみ再検出し、領域外の既存行/領域は温存する。
+  // region 指定時は単一ページの選択領域のみを検出し、結果も領域内の行/領域のみとする
+  // （領域外の既存行は残さず置き換える）。
   const runLayout = useCallback(async (ids: string[], region?: BoundingBox) => {
     const targets = ids.filter((id) => pagesRef.current.some((p) => p.id === id))
     if (targets.length === 0) return
@@ -122,11 +122,7 @@ export default function App() {
       try {
         const imageData = await decodeBlobToImageData(blob)
         const { lines, regions } = useRegion
-          ? await detectLayout(imageData, {
-              region,
-              mergeLines: page.lines.filter((l) => !rectsOverlap(l, region)),
-              mergeRegions: page.regions.filter((r) => !rectsOverlap(r, region)),
-            })
+          ? await detectLayout(imageData, { region })   // 領域内のみ検出・領域外は破棄
           : await detectLayout(imageData)
         updatePage(id, { lines, regions, status: 'layout' })
       } catch (err) {
