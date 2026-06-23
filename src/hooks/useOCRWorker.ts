@@ -81,10 +81,11 @@ export function useOCRWorker(modelVersion: OcrModelVersion, layoutVersion: Layou
     const pending = layoutPending.current
     let cancelled = false
 
-    // WebGPU 利用可否を先に判定（adapter 取得まで）。利用可なら encoder を GPU で
-    // 動かすため認識ワーカーは 1 本に絞る（GPU は直列・複数セッションは VRAM 浪費）。
+    // WebGPU 利用可否を先に判定（adapter 取得まで）。利用可なら encoder を GPU で動かす。
+    // ただし iOS Safari は WebGPU 対応でもタブ毎メモリ上限が厳しく、fp16 encoder(175MB)+
+    // WebGPU でクラッシュするため、iOS では WebGPU を使わず int8/wasm 経路にフォールバック。
     ;(async () => {
-      const useWebGpu = await detectWebGpu()
+      const useWebGpu = !IS_IOS && await detectWebGpu()
       if (cancelled) return
       const recCount = useWebGpu ? WEBGPU_REC_WORKERS : N_REC_WORKERS
 
