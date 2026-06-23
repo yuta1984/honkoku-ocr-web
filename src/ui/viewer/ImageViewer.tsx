@@ -26,7 +26,6 @@ export interface ImageViewerHandle {
 }
 
 const REGION_LABEL: Record<number, string> = {
-  [LAYOUT_CLASS.OVERALL]: '全体',
   [LAYOUT_CLASS.ILLUSTRATION]: '図版',
   [LAYOUT_CLASS.STAMP]: '印判',
 }
