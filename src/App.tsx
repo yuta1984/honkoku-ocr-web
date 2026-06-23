@@ -41,7 +41,7 @@ export default function App() {
     pages, selectedId, selectedPage, selectedOrder, setSelectedOrder, selectedDataUrl,
     isLoadingFiles, fileLoadingState, pagesRef, getBlob,
     addImages, handlePaste, selectPage, clearAll, removePage, updatePage, updateLine, updateLineText, deleteLine,
-    deleteLinesInRegion, swapOrder, addLine,
+    deleteLinesInRegion, swapOrder, addLine, updateLineRaw,
   } = store
 
   const [job, setJob] = useState<JobProgress>(idleJob)
@@ -165,8 +165,10 @@ export default function App() {
 
       setJob((j) => ({ ...j, stage: 'OCR', message: `${page.fileName} を認識中...` }))
       try {
-        const map = await recognizeLines(imageData, page.lines, (done, total) => {
+        const map = await recognizeLines(imageData, page.lines, (done, total, idx, raw) => {
           setJob((j) => ({ ...j, detail: total > 0 ? done / total : 0, message: `${page.fileName}：${done}/${total} 行` }))
+          // 認識1行完了ごとに当該行の raw を更新 → 翻刻パネルに逐次表示
+          if (idx != null && raw != null) updateLineRaw(id, idx, raw)
         })
         const newLines = page.lines.map((l, idx) => ({ ...l, raw: map.get(idx) ?? '' }))
         updatePage(id, { lines: newLines, status: 'ocr' })
@@ -175,7 +177,7 @@ export default function App() {
       }
     }
     setJob(idleJob)
-  }, [detectLayout, recognizeLines, updatePage, pagesRef, getBlob])
+  }, [detectLayout, recognizeLines, updatePage, updateLineRaw, pagesRef, getBlob])
 
   // ビューアと翻刻パネルの境界ドラッグ（デスクトップ専用）
   const startSplitDrag = useCallback((e: React.PointerEvent) => {

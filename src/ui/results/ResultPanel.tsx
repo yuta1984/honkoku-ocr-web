@@ -160,7 +160,9 @@ export function ResultPanel({ item, selectedOrder, onSelectLine, onUpdateLineTex
     body = placeholder(lang === 'ja' ? '画像を選択してください' : 'Select an image')
   } else if (item.status === 'unprocessed') {
     body = placeholder(lang === 'ja' ? 'レイアウト認識を実行すると行が表示されます' : 'Run layout recognition to detect lines')
-  } else if (item.status === 'layout') {
+  } else if (item.status === 'layout' && ocrLines.length === 0) {
+    // OCR 未実行（行の raw が1つも無い）時のみプレースホルダ。
+    // OCR 中は raw が付いた行から順に表示したいので、ocrLines があれば下の描画へ進む。
     body = placeholder(lang === 'ja' ? 'OCRを実行すると翻刻が表示されます' : 'Run OCR to see the transcription')
   } else if (ocrLines.length === 0) {
     body = placeholder(lang === 'ja' ? 'テキストが検出されませんでした' : 'No text detected')

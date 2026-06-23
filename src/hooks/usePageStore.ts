@@ -139,6 +139,15 @@ export function usePageStore() {
     ))
   }, [selectedId])
 
+  // OCR 逐次表示用: 指定ページの行を配列インデックスで raw 更新（認識1行完了ごと）。
+  const updateLineRaw = useCallback((pageId: string, lineIndex: number, raw: string) => {
+    setPages((prev) => prev.map((p) =>
+      p.id === pageId
+        ? { ...p, lines: p.lines.map((l, i) => (i === lineIndex ? { ...l, raw } : l)) }
+        : p
+    ))
+  }, [])
+
   const deleteLine = useCallback((order: number) => {
     setPages((prev) => prev.map((p) => {
       if (p.id !== selectedId) return p
@@ -231,6 +240,6 @@ export function usePageStore() {
     isLoadingFiles, fileLoadingState,
     pagesRef, getBlob,
     addImages, handlePaste, selectPage, clearAll, removePage, updatePage, updateLine, updateLineText, deleteLine,
-    deleteLinesInRegion, swapOrder, addLine,
+    deleteLinesInRegion, swapOrder, addLine, updateLineRaw,
   }
 }

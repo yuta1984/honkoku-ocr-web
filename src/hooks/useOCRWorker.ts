@@ -187,7 +187,7 @@ export function useOCRWorker(modelVersion: OcrModelVersion, layoutVersion: Layou
    * 行インデックス -> Koji 生文字列 の Map を返す。onLineDone は1行完了ごとに呼ぶ。
    */
   const recognizeLines = useCallback(
-    (imageData: ImageData, lines: LineBox[], onLineDone?: (done: number, total: number) => void): Promise<Map<number, string>> => {
+    (imageData: ImageData, lines: LineBox[], onLineDone?: (done: number, total: number, lineIndex?: number, raw?: string) => void): Promise<Map<number, string>> => {
       return new Promise((resolve, reject) => {
         const workers = recWorkersRef.current
         if (workers.length === 0) return reject(new Error('Recognition workers not ready'))
@@ -220,7 +220,7 @@ export function useOCRWorker(modelVersion: OcrModelVersion, layoutVersion: Layou
               const m = e.data
               if (m.type === 'REC_LINE_DONE') {
                 done++
-                onLineDone?.(done, total)
+                onLineDone?.(done, total, m.id, m.raw)   // 行 index と認識結果を逐次通知
               } else if (m.type === 'REC_COMPLETE') {
                 worker.removeEventListener('message', handler)
                 res(m.results)
