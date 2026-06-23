@@ -158,13 +158,15 @@ export const ImageViewer = forwardRef<ImageViewerHandle, ImageViewerProps>(funct
       if (regionModeRef.current || !down) return
       const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y)
       down = null
-      if (moved > 5 || !showRef.current || !viewer.world.getItemAt(0)) return
+      if (moved > 5 || !viewer.world.getItemAt(0)) return
       const pt = imgPoint(e.clientX, e.clientY)
-      // 領域が選択されているとき、領域外クリックで領域を解除（行選択はしない）
+      // 領域が選択されているとき、領域外クリックで領域を解除（行の有無に依らず働く）
       const rg = regionRef.current
       if (rg && !(pt.x >= rg.x && pt.x <= rg.x + rg.width && pt.y >= rg.y && pt.y <= rg.y + rg.height)) {
         onRegionDrawRef.current(null); return
       }
+      // 行が表示されていない（未処理）ときは行選択はしない
+      if (!showRef.current) return
       const hit = linesRef.current.find((l) => pt.x >= l.x && pt.x <= l.x + l.width && pt.y >= l.y && pt.y <= l.y + l.height)
       onSelectRef.current(hit ? hit.readingOrder : null)
     }

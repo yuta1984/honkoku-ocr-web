@@ -376,7 +376,7 @@ export default function App() {
             )}
           </div>
 
-          {selectedPage && selectedPage.status !== 'unprocessed' && (
+          {selectedPage && (
             <ViewerBottomBar
               hasSelection={selectedOrder != null}
               hasRegion={selectedRegion != null}
