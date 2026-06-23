@@ -33,6 +33,11 @@ const N_REC_WORKERS =
       ? Math.min(Math.max(HW_CONCURRENCY - 1, 1), MOBILE_MAX_REC_WORKERS)
       : Math.min(Math.max(HW_CONCURRENCY - 1, 1), MAX_REC_WORKERS)
 
+// WebGPU 時のワーカー数。encoder は GPU 直列(~0.5s/行)・decoder は wasm(~0.6s/行)。
+// 2 本あれば decoder が encoder の裏に隠れ encoder 律速になる。各セッションが encoder
+// 重みを VRAM に持つ(~183MB)ため増やしすぎは OOM 危険 → 2 に抑える(低性能機は 1)。
+const WEBGPU_REC_WORKERS = Math.min(2, N_REC_WORKERS)
+
 // 行 crop の余白(px)。レイアウト bbox は主文字に密着しており、縦書きでは
 // ふりがなが主行の右側にはみ出すため、そのまま切ると ふりがな/字形 が切れる。
 // 上下左右に余白を付けて crop する。左の余白は text-recognizer の to_pixel が
@@ -81,7 +86,7 @@ export function useOCRWorker(modelVersion: OcrModelVersion, layoutVersion: Layou
     ;(async () => {
       const useWebGpu = await detectWebGpu()
       if (cancelled) return
-      const recCount = useWebGpu ? 1 : N_REC_WORKERS
+      const recCount = useWebGpu ? WEBGPU_REC_WORKERS : N_REC_WORKERS
 
       const ocrWorker = new Worker(new URL('../ocr/ocr.worker.ts', import.meta.url), { type: 'module' })
       ocrWorkerRef.current = ocrWorker
