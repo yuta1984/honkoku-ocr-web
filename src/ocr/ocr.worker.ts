@@ -10,7 +10,7 @@
  */
 
 import './onnx-config'
-import { loadModel, DEFAULT_OCR_VERSION, DEFAULT_LAYOUT_VERSION, HAS_KV_CACHE_DECODER } from './model-loader'
+import { loadModel, DEFAULT_OCR_VERSION, DEFAULT_LAYOUT_VERSION, HAS_KV_CACHE_DECODER, HAS_FP16_ENCODER } from './model-loader'
 import type { OcrModelVersion, LayoutModelVersion } from './model-loader'
 import { LayoutDetector } from './layout-detector'
 import { ReadingOrderProcessor } from './reading-order'
@@ -25,6 +25,8 @@ class LayoutWorker {
   version: OcrModelVersion = DEFAULT_OCR_VERSION
   // レイアウト検出モデルの版 (rtmdet / yolo)。INITIALIZE で受け取る。
   layoutVersion: LayoutModelVersion = DEFAULT_LAYOUT_VERSION
+  // WebGPU を使う端末か（main で adapter 確認済み）。fp16 encoder を precache する。
+  useWebGpu = false
 
   private post(message: WorkerOutMessage) {
     self.postMessage(message)
@@ -50,9 +52,11 @@ class LayoutWorker {
       }
 
       // モデルを並列ダウンロード(IndexedDB へキャッシュ)。OCR/layout とも version 別。
+      // WebGPU 端末では fp16 encoder を precache（rec worker の選択と一致させる）
+      const encType = (this.useWebGpu && HAS_FP16_ENCODER(this.version)) ? 'ocrEncoderFp16' : 'ocrEncoder'
       const tasks: Promise<unknown>[] = [
-        loadModel('layout',     (p) => { progresses.layout = p; report() },  this.version, this.layoutVersion),
-        loadModel('ocrEncoder', (p) => { progresses.encoder = p; report() }, this.version, this.layoutVersion),
+        loadModel('layout',  (p) => { progresses.layout = p; report() },  this.version, this.layoutVersion),
+        loadModel(encType,   (p) => { progresses.encoder = p; report() }, this.version, this.layoutVersion),
       ]
       if (splitDec) {
         tasks.push(loadModel('ocrDecoderPrefill', (p) => { progresses.decoderPrefill = p; report() }, this.version, this.layoutVersion))
@@ -126,6 +130,7 @@ self.onmessage = async (event: MessageEvent<WorkerInMessage>) => {
     case 'INITIALIZE':
       worker.version = msg.version
       worker.layoutVersion = msg.layoutVersion
+      worker.useWebGpu = msg.useWebGpu ?? false
       await worker.initialize()
       break
     case 'LAYOUT_DETECT':

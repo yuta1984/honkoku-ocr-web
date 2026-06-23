@@ -70,9 +70,10 @@ const vocabUrl = (version: OcrModelVersion) =>
 const hiraToKata = (s: string): string =>
   s.replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60))
 
+// encoderEP: encoder セッションの実行プロバイダ（'webgpu' は fp16 encoder 用）
 type InitArgs =
-  | { version: OcrModelVersion; encoderData: ArrayBuffer; decoderData: ArrayBuffer }                       // v7/v8/v11
-  | { version: OcrModelVersion; encoderData: ArrayBuffer; prefillData: ArrayBuffer; stepData: ArrayBuffer } // v12
+  | { version: OcrModelVersion; encoderData: ArrayBuffer; decoderData: ArrayBuffer; encoderEP?: 'wasm' | 'webgpu' }                       // v7/v8/v11
+  | { version: OcrModelVersion; encoderData: ArrayBuffer; prefillData: ArrayBuffer; stepData: ArrayBuffer; encoderEP?: 'wasm' | 'webgpu' } // v12
 
 export class TextRecognizer {
   private encoder: OrtType.InferenceSession | null = null
@@ -100,7 +101,9 @@ export class TextRecognizer {
       this.vocab = await res.json()
     }
     // WASM ランタイムが 1 スレッドのためセッション作成は直列
-    this.encoder = await createSession(args.encoderData)
+    // encoder は WebGPU 指定時のみ WebGPU EP（fp16）、それ以外は WASM（int8）
+    this.encoder = await createSession(args.encoderData,
+      args.encoderEP === 'webgpu' ? { executionProviders: ['webgpu'] } : {})
     if (HAS_KV_CACHE_DECODER(args.version) && 'prefillData' in args) {
       this.decoderPrefill = await createSession(args.prefillData)
       this.decoderStep    = await createSession(args.stepData)

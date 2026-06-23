@@ -4,7 +4,7 @@ import type { LineBox, RegionBox, BoundingBox, ModelProgress } from './ocr'
 import type { OcrModelVersion, LayoutModelVersion } from '../ocr/model-loader'
 
 export type WorkerInMessage =
-  | { type: 'INITIALIZE'; version: OcrModelVersion; layoutVersion: LayoutModelVersion }
+  | { type: 'INITIALIZE'; version: OcrModelVersion; layoutVersion: LayoutModelVersion; useWebGpu?: boolean }
   | {
       type: 'LAYOUT_DETECT'
       id: string

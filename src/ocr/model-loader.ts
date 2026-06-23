@@ -45,7 +45,8 @@ const LAYOUT_FILES: Record<LayoutModelVersion, string> = {
 // v7/v8/v11 は単一 decoder、v12 は KV cache のため prefill + step の2分割。
 // 種別ごとにファイル名を別定義し、resolveModel で版に応じて選ぶ。
 type SingleDecoderFiles = { encoder: string; decoder: string }
-type SplitDecoderFiles = { encoder: string; decoderPrefill: string; decoderStep: string }
+// encoderFp16: WebGPU 用の fp16 encoder（任意。あれば WebGPU 端末で使用）
+type SplitDecoderFiles = { encoder: string; encoderFp16?: string; decoderPrefill: string; decoderStep: string }
 type OcrModelFiles = SingleDecoderFiles | SplitDecoderFiles
 const OCR_MODEL_FILES: Record<OcrModelVersion, OcrModelFiles> = {
   v7:  { encoder: 'kuzushiji-v7-encoder-int8.onnx',  decoder: 'kuzushiji-v7-decoder-int8.onnx' },  // ConvNeXt-Small
@@ -66,12 +67,19 @@ const OCR_MODEL_FILES: Record<OcrModelVersion, OcrModelFiles> = {
   // v16fs: v13 と完全同型(256×2048, enc_seq=512, mw=72, RoBERTa 512/6/8)。語彙 7710 へ拡張。
   v16fs: {
     encoder: 'kuzushiji-v16fs-encoder-int8.onnx',
+    encoderFp16: 'kuzushiji-v16fs-encoder-fp16.onnx',   // WebGPU 用
     decoderPrefill: 'kuzushiji-v16fs-decoder-prefill-int8.onnx',
     decoderStep:    'kuzushiji-v16fs-decoder-step-int8.onnx',
   },
 }
 export const HAS_KV_CACHE_DECODER = (version: OcrModelVersion): version is 'v12' | 'v13' | 'v16fs' =>
   version === 'v12' || version === 'v13' || version === 'v16fs'
+
+/** WebGPU 用 fp16 encoder を持つ版か。 */
+export const HAS_FP16_ENCODER = (version: OcrModelVersion): boolean => {
+  const f = OCR_MODEL_FILES[version]
+  return 'encoderFp16' in f && !!f.encoderFp16
+}
 
 // modelType + version → 配信URL と キャッシュキー。OCR/レイアウトとも version 別キーで複数キャッシュ可（切替が高速）。
 // レイアウトの cacheKey にはファイル名を含める：版内で配信ファイルを差し替えた場合に自動でキャッシュ invalidate するため。
@@ -86,6 +94,10 @@ function resolveModel(
   }
   const files = OCR_MODEL_FILES[version]
   if (modelType === 'ocrEncoder') return { url: modelUrl(files.encoder), cacheKey: `ocrEncoder@${version}` }
+  if (modelType === 'ocrEncoderFp16') {
+    if (!('encoderFp16' in files) || !files.encoderFp16) throw new Error(`${version} has no fp16 encoder`)
+    return { url: modelUrl(files.encoderFp16), cacheKey: `ocrEncoderFp16@${version}` }
+  }
   if (modelType === 'ocrDecoder') {
     if (!('decoder' in files)) throw new Error(`${version} has no single decoder (use ocrDecoderPrefill/Step)`)
     return { url: modelUrl(files.decoder), cacheKey: `ocrDecoder@${version}` }

@@ -46,6 +46,17 @@ const initialModelState: ModelState = {
   message: '初期化中...',
 }
 
+// メインスレッドでの軽量 WebGPU 判定（ort を main バンドルに引き込まないため自前実装）。
+async function detectWebGpu(): Promise<boolean> {
+  try {
+    const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu
+    if (!gpu) return false
+    return !!(await gpu.requestAdapter())
+  } catch {
+    return false
+  }
+}
+
 export function useOCRWorker(modelVersion: OcrModelVersion, layoutVersion: LayoutModelVersion) {
   const ocrWorkerRef = useRef<Worker | null>(null)
   const recWorkersRef = useRef<Worker[]>([])
@@ -62,76 +73,79 @@ export function useOCRWorker(modelVersion: OcrModelVersion, layoutVersion: Layou
     setIsReady(false)
     setModelState(initialModelState)
 
-    const ocrWorker = new Worker(new URL('../ocr/ocr.worker.ts', import.meta.url), { type: 'module' })
-    ocrWorkerRef.current = ocrWorker
-
-    const recWorkers = Array.from({ length: N_REC_WORKERS }, () => new RecognitionWorkerFactory())
-    recWorkersRef.current = recWorkers
     const pending = layoutPending.current
+    let cancelled = false
 
-    let recReadyCount = 0
-    const onAllRecReady = () => {
-      setModelState({ status: 'ready', progress: 1, message: '準備完了' })
-      setIsReady(true)
-    }
+    // WebGPU 利用可否を先に判定（adapter 取得まで）。利用可なら encoder を GPU で
+    // 動かすため認識ワーカーは 1 本に絞る（GPU は直列・複数セッションは VRAM 浪費）。
+    ;(async () => {
+      const useWebGpu = await detectWebGpu()
+      if (cancelled) return
+      const recCount = useWebGpu ? 1 : N_REC_WORKERS
 
-    const initRecWorkers = () => {
-      setModelState({ status: 'loading_model', progress: 0.98, message: '認識モデルを準備中...' })
-      recWorkers.forEach((w) => {
-        const onReady = (e: MessageEvent<RecWorkerOutMessage>) => {
-          if (e.data.type === 'REC_READY') {
-            recReadyCount++
-            w.removeEventListener('message', onReady)
-            if (recReadyCount >= N_REC_WORKERS) onAllRecReady()
-          } else if (e.data.type === 'REC_INIT_ERROR') {
-            w.removeEventListener('message', onReady)
-            setModelState({ status: 'error', progress: 0, message: '認識モデルの初期化に失敗しました', error: e.data.error })
-          }
-        }
-        w.addEventListener('message', onReady)
-        w.postMessage({ type: 'REC_INIT', version: modelVersion } satisfies RecWorkerInMessage)
-      })
-    }
+      const ocrWorker = new Worker(new URL('../ocr/ocr.worker.ts', import.meta.url), { type: 'module' })
+      ocrWorkerRef.current = ocrWorker
+      const recWorkers = Array.from({ length: recCount }, () => new RecognitionWorkerFactory())
+      recWorkersRef.current = recWorkers
 
-    ocrWorker.onmessage = (event: MessageEvent<WorkerOutMessage>) => {
-      const msg = event.data
-      switch (msg.type) {
-        case 'INIT_PROGRESS':
-          setModelState({ status: 'loading_model', progress: msg.progress, message: msg.message, modelProgress: msg.modelProgress })
-          break
-        case 'INIT_DONE':
-          // モデルが IndexedDB にキャッシュされたので、認識ワーカーをキャッシュから初期化
-          initRecWorkers()
-          break
-        case 'INIT_ERROR':
-          setModelState({ status: 'error', progress: 0, message: 'モデルの読み込みに失敗しました', error: msg.error })
-          break
-        case 'LAYOUT_DONE': {
-          const pending = layoutPending.current.get(msg.id)
-          if (pending) {
-            layoutPending.current.delete(msg.id)
-            pending.resolve({ lines: msg.lines, regions: msg.regions })
+      let recReadyCount = 0
+      const onAllRecReady = () => {
+        setModelState({ status: 'ready', progress: 1, message: '準備完了' })
+        setIsReady(true)
+      }
+
+      const initRecWorkers = () => {
+        setModelState({ status: 'loading_model', progress: 0.98, message: '認識モデルを準備中...' })
+        recWorkers.forEach((w) => {
+          const onReady = (e: MessageEvent<RecWorkerOutMessage>) => {
+            if (e.data.type === 'REC_READY') {
+              recReadyCount++
+              w.removeEventListener('message', onReady)
+              if (recReadyCount >= recCount) onAllRecReady()
+            } else if (e.data.type === 'REC_INIT_ERROR') {
+              w.removeEventListener('message', onReady)
+              setModelState({ status: 'error', progress: 0, message: '認識モデルの初期化に失敗しました', error: e.data.error })
+            }
           }
-          break
-        }
-        case 'LAYOUT_ERROR': {
-          const pending = layoutPending.current.get(msg.id)
-          if (pending) {
-            layoutPending.current.delete(msg.id)
-            pending.reject(new Error(msg.error))
+          w.addEventListener('message', onReady)
+          w.postMessage({ type: 'REC_INIT', version: modelVersion, useWebGpu } satisfies RecWorkerInMessage)
+        })
+      }
+
+      ocrWorker.onmessage = (event: MessageEvent<WorkerOutMessage>) => {
+        const msg = event.data
+        switch (msg.type) {
+          case 'INIT_PROGRESS':
+            setModelState({ status: 'loading_model', progress: msg.progress, message: msg.message, modelProgress: msg.modelProgress })
+            break
+          case 'INIT_DONE':
+            // モデルが IndexedDB にキャッシュされたので、認識ワーカーをキャッシュから初期化
+            initRecWorkers()
+            break
+          case 'INIT_ERROR':
+            setModelState({ status: 'error', progress: 0, message: 'モデルの読み込みに失敗しました', error: msg.error })
+            break
+          case 'LAYOUT_DONE': {
+            const p = layoutPending.current.get(msg.id)
+            if (p) { layoutPending.current.delete(msg.id); p.resolve({ lines: msg.lines, regions: msg.regions }) }
+            break
           }
-          break
+          case 'LAYOUT_ERROR': {
+            const p = layoutPending.current.get(msg.id)
+            if (p) { layoutPending.current.delete(msg.id); p.reject(new Error(msg.error)) }
+            break
+          }
         }
       }
-    }
 
-    // 初期状態は initialModelState（loading_model）。ここでは worker を起動するだけ。
-    ocrWorker.postMessage({ type: 'INITIALIZE', version: modelVersion, layoutVersion } satisfies WorkerInMessage)
+      ocrWorker.postMessage({ type: 'INITIALIZE', version: modelVersion, layoutVersion, useWebGpu } satisfies WorkerInMessage)
+    })()
 
     return () => {
-      ocrWorker.postMessage({ type: 'TERMINATE' } satisfies WorkerInMessage)
-      ocrWorker.terminate()
-      recWorkers.forEach((w) => {
+      cancelled = true
+      ocrWorkerRef.current?.postMessage({ type: 'TERMINATE' } satisfies WorkerInMessage)
+      ocrWorkerRef.current?.terminate()
+      recWorkersRef.current.forEach((w) => {
         w.postMessage({ type: 'REC_TERMINATE' } satisfies RecWorkerInMessage)
         w.terminate()
       })

@@ -7,7 +7,9 @@
  */
 
 import './onnx-config'
-import { loadModel, HAS_KV_CACHE_DECODER } from './model-loader'
+import { isWebGpuAvailable } from './onnx-config'
+import { loadModel, HAS_KV_CACHE_DECODER, HAS_FP16_ENCODER } from './model-loader'
+import type { OcrModelVersion } from './model-loader'
 import { TextRecognizer } from './text-recognizer'
 import type { RecWorkerInMessage, RecWorkerOutMessage } from '../types/recognition-worker'
 
@@ -18,27 +20,42 @@ function post(msg: RecWorkerOutMessage, transfer?: Transferable[]) {
   else self.postMessage(msg)
 }
 
+// encoder/decoder をロードして recognizer を初期化。useGpu 時は fp16 encoder + WebGPU EP。
+async function initRecognizer(version: OcrModelVersion, useGpu: boolean): Promise<void> {
+  const encType = useGpu ? 'ocrEncoderFp16' : 'ocrEncoder'
+  const encoderEP: 'webgpu' | 'wasm' = useGpu ? 'webgpu' : 'wasm'
+  recognizer?.dispose()
+  recognizer = new TextRecognizer()
+  if (HAS_KV_CACHE_DECODER(version)) {
+    const [encData, prefillData, stepData] = await Promise.all([
+      loadModel(encType,             undefined, version),
+      loadModel('ocrDecoderPrefill', undefined, version),
+      loadModel('ocrDecoderStep',    undefined, version),
+    ])
+    await recognizer.initialize({ encoderData: encData, prefillData, stepData, version, encoderEP })
+  } else {
+    const [encData, decData] = await Promise.all([
+      loadModel(encType,      undefined, version),
+      loadModel('ocrDecoder', undefined, version),
+    ])
+    await recognizer.initialize({ encoderData: encData, decoderData: decData, version, encoderEP })
+  }
+  console.log(`[rec] encoder EP=${encoderEP} (${encType})`)
+}
+
 self.onmessage = async (e: MessageEvent<RecWorkerInMessage>) => {
   const msg = e.data
 
   if (msg.type === 'REC_INIT') {
     try {
-      // v12 は decoder が prefill+step の2ファイル。それ以外は single decoder。
-      if (HAS_KV_CACHE_DECODER(msg.version)) {
-        const [encData, prefillData, stepData] = await Promise.all([
-          loadModel('ocrEncoder',        undefined, msg.version),
-          loadModel('ocrDecoderPrefill', undefined, msg.version),
-          loadModel('ocrDecoderStep',    undefined, msg.version),
-        ])
-        recognizer = new TextRecognizer()
-        await recognizer.initialize({ encoderData: encData, prefillData, stepData, version: msg.version })
-      } else {
-        const [encData, decData] = await Promise.all([
-          loadModel('ocrEncoder', undefined, msg.version),
-          loadModel('ocrDecoder', undefined, msg.version),
-        ])
-        recognizer = new TextRecognizer()
-        await recognizer.initialize({ encoderData: encData, decoderData: decData, version: msg.version })
+      const useGpu = !!msg.useWebGpu && HAS_FP16_ENCODER(msg.version) && await isWebGpuAvailable()
+      try {
+        await initRecognizer(msg.version, useGpu)
+      } catch (gpuErr) {
+        if (!useGpu) throw gpuErr
+        // WebGPU 初期化失敗 → WASM(int8) にフォールバック
+        console.warn('WebGPU encoder init failed; falling back to wasm:', gpuErr)
+        await initRecognizer(msg.version, false)
       }
       post({ type: 'REC_READY' })
     } catch (err) {

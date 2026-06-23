@@ -8,7 +8,7 @@ export interface RecJob {
 }
 
 export type RecWorkerInMessage =
-  | { type: 'REC_INIT'; version: OcrModelVersion }
+  | { type: 'REC_INIT'; version: OcrModelVersion; useWebGpu?: boolean }
   | { type: 'REC_PROCESS'; jobs: RecJob[] }
   | { type: 'REC_TERMINATE' }
 
