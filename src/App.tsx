@@ -133,9 +133,11 @@ export default function App() {
   }, [detectLayout, updatePage, pagesRef, getBlob])
 
   // --- OCR 実行（必要なら先にレイアウト認識） ---
-  const runOCR = useCallback(async (ids: string[]) => {
+  // region 指定時は単一ページの選択領域のみを再レイアウトしてから、その行のみを OCR する。
+  const runOCR = useCallback(async (ids: string[], region?: BoundingBox) => {
     const targets = ids.filter((id) => pagesRef.current.some((p) => p.id === id))
     if (targets.length === 0) return
+    const useRegion = region && targets.length === 1
     setJob({ active: true, kind: 'ocr', current: 0, total: targets.length, stage: 'OCR', detail: 0, message: '' })
     for (let i = 0; i < targets.length; i++) {
       const id = targets[i]
@@ -145,10 +147,13 @@ export default function App() {
       setJob((j) => ({ ...j, current: i + 1, detail: 0, message: `${page.fileName}` }))
       const imageData = await decodeBlobToImageData(blob)
 
-      if (page.status === 'unprocessed' || page.lines.length === 0) {
+      // 領域選択時は常に領域のみで再レイアウト。未指定時は未処理/行なしのときだけ全体レイアウト。
+      if (useRegion || page.status === 'unprocessed' || page.lines.length === 0) {
         try {
           setJob((j) => ({ ...j, stage: 'レイアウト認識', message: `${page.fileName} のレイアウトを認識中...` }))
-          const { lines, regions } = await detectLayout(imageData)
+          const { lines, regions } = useRegion
+            ? await detectLayout(imageData, { region })
+            : await detectLayout(imageData)
           updatePage(id, { lines, regions, status: 'layout' })
           page = { ...page, lines, regions, status: 'layout' }
         } catch (err) {
@@ -301,7 +306,7 @@ export default function App() {
               lang={lang}
               showGuide={showGuide}
               onLayout={() => selectedPage && runLayout([selectedPage.id], selectedRegion ?? undefined)}
-              onOcr={() => selectedPage && runOCR([selectedPage.id])}
+              onOcr={() => selectedPage && runOCR([selectedPage.id], selectedRegion ?? undefined)}
               onDismissGuide={() => setShowGuide(false)}
             />
           ) : (
