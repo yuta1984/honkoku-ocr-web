@@ -288,8 +288,8 @@ export default function App() {
           onPaste={handlePaste}
           onSelectPage={selectPage}
           onRemovePage={removePage}
-          onLayout={() => selectedPage && runLayout([selectedPage.id])}
-          onOcr={() => selectedPage && runOCR([selectedPage.id])}
+          onLayout={() => selectedPage && runLayout([selectedPage.id], selectedRegion ?? undefined)}
+          onOcr={() => selectedPage && runOCR([selectedPage.id], selectedRegion ?? undefined)}
           onLayoutAll={() => runLayout(pages.map((p) => p.id))}
           onOcrAll={() => runOCR(pages.map((p) => p.id))}
           onClearAll={handleClearAll}
