@@ -178,7 +178,9 @@ async function downloadWithProgress(
   url: string,
   onProgress?: (progress: number) => void
 ): Promise<ArrayBuffer> {
-  const response = await fetch(url)
+  // 永続キャッシュは IndexedDB 側で行うため、HTTP キャッシュは使わない（no-store）。
+  // これによりキャッシュクリア後の再取得が必ず最新バイトになる（古い版を掴まない）。
+  const response = await fetch(url, { cache: 'no-store' })
 
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`)

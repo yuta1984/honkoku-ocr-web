@@ -46,7 +46,6 @@ export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersio
   const [tab, setTabState] = useState<SettingsTab>(getInitialTab)
   const setTab = (t: SettingsTab) => { localStorage.setItem(TAB_KEY, t); setTabState(t) }
   const [clearing, setClearing] = useState(false)
-  const [cleared, setCleared] = useState(false)
 
   // --- LLM セクションのローカル状態 ---
   const [keyInput, setKeyInput] = useState('')
@@ -60,18 +59,18 @@ export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersio
   const handleClearModels = async () => {
     if (!window.confirm(
       ja
-        ? 'キャッシュされたONNXモデルを削除しますか？次回起動時に再ダウンロードが必要です。'
-        : 'Delete cached ONNX models? They will be re-downloaded on next startup.'
+        ? 'キャッシュされたONNXモデルを削除して再読み込みします。モデルは再ダウンロードされます。よろしいですか？'
+        : 'Delete cached ONNX models and reload? Models will be re-downloaded. Continue?'
     )) return
 
     setClearing(true)
     try {
       await clearModelCache()
-      setCleared(true)
-      setTimeout(() => setCleared(false), 2000)
+      // ワーカーはモデルをメモリ上に保持しているため、クリアだけでは反映されない。
+      // ページを再読み込みして（空キャッシュ→再ダウンロードで）確実に反映させる。
+      window.location.reload()
     } catch (err) {
       alert((err as Error).message)
-    } finally {
       setClearing(false)
     }
   }
@@ -313,11 +312,9 @@ export function SettingsModal({ onClose, lang, modelVersion, onChangeModelVersio
               onClick={handleClearModels}
               disabled={clearing}
             >
-              {cleared
-                ? (ja ? '✓ クリア完了' : '✓ Cleared')
-                : clearing
-                  ? (ja ? 'クリア中...' : 'Clearing...')
-                  : (ja ? 'モデルキャッシュをクリア' : 'Clear Model Cache')}
+              {clearing
+                ? (ja ? 'クリア中...' : 'Clearing...')
+                : (ja ? 'モデルキャッシュをクリア' : 'Clear Model Cache')}
             </button>
           </section>
           </>}
