@@ -15,7 +15,7 @@
  */
 
 import type * as OrtType from 'onnxruntime-web'
-import { ort, createSession } from './onnx-config'
+import { ort, createSession, initOrt } from './onnx-config'
 import { LAYOUT_CLASS } from '../types/ocr'
 import type { LineBox, RegionBox, LayoutResult } from '../types/ocr'
 import type { LayoutModelVersion } from './model-loader'
@@ -53,6 +53,8 @@ export class LayoutDetector {
 
   async initialize(modelData: ArrayBuffer, version: LayoutModelVersion): Promise<void> {
     if (this.initialized) return
+    // レイアウトは常に wasm EP のため軽量 wasm-only ランタイムを使う
+    await initOrt(false)
     this.version = version
     this.session = await createSession(modelData)
     this.initialized = true

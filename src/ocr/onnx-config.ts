@@ -1,29 +1,48 @@
 /**
  * ONNX Runtime Web 設定（Web Worker 内で共有）
  *
- * onnxruntime-web/webgpu（JSEP ビルド）を使用。WASM EP と WebGPU EP の両方を持つ。
- *  - encoder は WebGPU が使える端末では WebGPU EP（fp16, 大幅高速化）。
- *  - decoder / layout は従来どおり WASM EP（int8）。
- * WebGPU は cross-origin isolation 不要なので COOP/COEP 設定は据え置き。
+ * ランタイムビルドを用途で出し分ける（メモリ削減）:
+ *  - WebGPU を使うワーカー → onnxruntime-web/webgpu（JSEP/asyncify ランタイム・重い ~27MB）
+ *  - それ以外（iOS・WebGPU 非対応・レイアウト専用ワーカー）→ onnxruntime-web/wasm（軽い ~12MB）
  *
- * Vite の ?url import で JSEP WASM のハッシュ付き URL を取得し、同一オリジン配信する。
+ * asyncify ランタイムは wasm 本体も実行時メモリも大きく、iOS Safari の厳しいタブ毎
+ * メモリ上限でクラッシュの原因になる。WebGPU を使わない経路では必ず軽い wasm-only を使う。
+ *
+ * ビルド選択は実行時（initOrt）に行う。iOS 判定はワーカーでは不確実(maxTouchPoints 不可)
+ * なため、main から渡る useWebGpu フラグ（iOS 考慮済み）を信頼する。
  */
 
-import * as ort from 'onnxruntime-web/webgpu'
-// webgpu バンドル(ort.webgpu.bundle.min.mjs)は asyncify ランタイムを使う（wasm/WebGPU 共通）
-import wasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'
-import mjsUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url'
+import type * as OrtNS from 'onnxruntime-web'
+// Vite に両ランタイムの wasm/mjs を emit させる（実際に fetch されるのは選んだ方のみ）
+import asyncifyWasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url'
+import asyncifyMjsUrl from 'onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url'
+import simdWasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.wasm?url'
 
-function initializeONNX() {
-  // Vite がバンドルしたハッシュ付き URL を指定（CDN 不要）
-  ort.env.wasm.wasmPaths = { wasm: wasmUrl, mjs: mjsUrl }
-  // WASM はシングルスレッド（COEP 未設定のため）
-  ort.env.wasm.numThreads = 1
-  ort.env.logLevel = 'warning'
-  ort.env.wasm.proxy = false
+// 初期化後にセットされる live binding。importer は initOrt 完了後に ort.* を使うこと。
+export let ort: typeof OrtNS
+
+let initP: Promise<void> | null = null
+
+/** ランタイムを一度だけ読み込む。useWebGpu=true なら webgpu(asyncify) ビルド、false なら軽量 wasm-only。 */
+export function initOrt(useWebGpu: boolean): Promise<void> {
+  if (!initP) {
+    initP = (async () => {
+      const mod = useWebGpu
+        ? await import('onnxruntime-web/webgpu')
+        : await import('onnxruntime-web/wasm')
+      ort = mod as unknown as typeof OrtNS
+      ort.env.wasm.wasmPaths = useWebGpu
+        ? { wasm: asyncifyWasmUrl, mjs: asyncifyMjsUrl }
+        : { wasm: simdWasmUrl }
+      ort.env.wasm.numThreads = 1   // WASM はシングルスレッド（COEP 未設定のため）
+      ort.env.logLevel = 'warning'
+      ort.env.wasm.proxy = false
+    })()
+  }
+  return initP
 }
 
-/** WebGPU アダプタが取得できるか（worker / main いずれでも可）。 */
+/** WebGPU アダプタが取得できるか（worker / main いずれでも可）。ort のロード不要。 */
 export async function isWebGpuAvailable(): Promise<boolean> {
   try {
     const gpu = (globalThis.navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } })?.gpu
@@ -37,9 +56,10 @@ export async function isWebGpuAvailable(): Promise<boolean> {
 
 export async function createSession(
   modelData: ArrayBuffer,
-  options: Partial<ort.InferenceSession.SessionOptions> = {}
-): Promise<ort.InferenceSession> {
-  const defaultOptions: ort.InferenceSession.SessionOptions = {
+  options: Partial<OrtNS.InferenceSession.SessionOptions> = {}
+): Promise<OrtNS.InferenceSession> {
+  if (!ort) throw new Error('ort not initialized: call initOrt() before createSession()')
+  const defaultOptions: OrtNS.InferenceSession.SessionOptions = {
     executionProviders: ['wasm'],
     logSeverityLevel: 4,
     graphOptimizationLevel: 'basic',
@@ -47,16 +67,10 @@ export async function createSession(
     enableMemPattern: false,
     ...options,
   }
-
   try {
-    const session = await ort.InferenceSession.create(modelData, defaultOptions)
-    return session
+    return await ort.InferenceSession.create(modelData, defaultOptions)
   } catch (error) {
     console.error('Failed to create ONNX session:', error)
     throw error
   }
 }
-
-initializeONNX()
-
-export { ort }

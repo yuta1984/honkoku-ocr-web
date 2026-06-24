@@ -19,7 +19,7 @@
  */
 
 import type * as OrtType from 'onnxruntime-web'
-import { ort, createSession } from './onnx-config'
+import { ort, createSession, initOrt } from './onnx-config'
 import type { OcrModelVersion } from './model-loader'
 import { DEFAULT_OCR_VERSION, HAS_KV_CACHE_DECODER } from './model-loader'
 
@@ -91,6 +91,8 @@ export class TextRecognizer {
 
   async initialize(args: InitArgs): Promise<void> {
     if (this.initialized) return
+    // WebGPU 使用時のみ重い asyncify ランタイム、それ以外は軽量 wasm-only をロード
+    await initOrt(args.encoderEP === 'webgpu')
     this.version = args.version
     const dims = IMG_DIMS[args.version]
     this.imgH = dims.h
