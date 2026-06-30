@@ -82,10 +82,13 @@ export function useOCRWorker(modelVersion: OcrModelVersion, layoutVersion: Layou
     let cancelled = false
 
     // WebGPU 利用可否を先に判定（adapter 取得まで）。利用可なら encoder を GPU で動かす。
-    // ただし iOS Safari は WebGPU 対応でもタブ毎メモリ上限が厳しく、fp16 encoder(175MB)+
-    // WebGPU でクラッシュするため、iOS では WebGPU を使わず int8/wasm 経路にフォールバック。
+    // ただしモバイルでは WebGPU を使わず int8/wasm 経路にフォールバックする:
+    //  - iOS Safari: タブ毎メモリ上限が厳しく fp16 encoder(175MB)+WebGPU でクラッシュ。
+    //  - Android 等: モバイルGPU(Adreno/Mali)の fp16 数値挙動がデスクトップと異なり、
+    //    encoder 出力が壊れて崩壊出力(高頻度字の繰り返し)になる報告があるため除外。
+    // モバイルGPUの fp16/WebGPU は端末断片化が激しく信頼できない → int8/WASM(正確)を使う。
     ;(async () => {
-      const useWebGpu = !IS_IOS && await detectWebGpu()
+      const useWebGpu = !IS_IOS && !IS_OTHER_MOBILE_UA && await detectWebGpu()
       if (cancelled) return
       const recCount = useWebGpu ? WEBGPU_REC_WORKERS : N_REC_WORKERS
 
