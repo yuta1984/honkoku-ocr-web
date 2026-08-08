@@ -28,9 +28,12 @@ const modelUrl = (file: string) => (MODEL_BASE_URL ? `${MODEL_BASE_URL}/${file}`
 //   v7/v8/v11 は decoder 単一(use_cache=false で都度全シーケンス入力)。
 // v16fs = v13 と同型(ConvNeXt V2 + 256×2048 + KV cache)だが、語彙を 5000→7710 に拡張し
 //   旧字/異体字を忠実保存(旧字→新字変換 OFF)・MLM事前訓練付きで完全ゼロから再学習。
-//   test plain CER 0.0801(v13 0.0873 を上回る)。既定。
-export type OcrModelVersion = 'v7' | 'v8' | 'v11' | 'v12' | 'v13' | 'v16fs'
-export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v16fs'
+// v17 = v16fs とアーキ・語彙(7710)・レシピすべて同一で、学習データだけ行検出をやり直した
+//   v4 データセットに差し替えたもの。同一 test 集合での対照で v16fs 0.0777 → 0.0732(-5.7%、
+//   ペアードブートストラップ 1000/1000 で有意)。改善は行画像の欠損が直撃していた箇所に集中し、
+//   帳簿系 -23% / 割書F1 0.386→0.441。既定。
+export type OcrModelVersion = 'v7' | 'v8' | 'v11' | 'v12' | 'v13' | 'v16fs' | 'v17'
+export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v17'
 
 // レイアウト検出モデルの版。設定で切替可能（localStorage 永続化、useLayoutVersion）。
 //   yolo   = koten-layout-best.onnx       (5クラス YOLOv8。手書き/活字=行、図版/印判=領域。本システムオリジナル)
@@ -71,9 +74,17 @@ const OCR_MODEL_FILES: Record<OcrModelVersion, OcrModelFiles> = {
     decoderPrefill: 'kuzushiji-v16fs-decoder-prefill-int8.onnx',
     decoderStep:    'kuzushiji-v16fs-decoder-step-int8.onnx',
   },
+  // v17: v16fs と完全同型(256×2048, enc_seq=512, mw=72, RoBERTa 512/6/8, 語彙7710)。
+  //   差分は学習データのみ(v3 → v4)。vocab は v16fs と byte 同一。
+  v17: {
+    encoder: 'kuzushiji-v17-encoder-int8.onnx',
+    encoderFp16: 'kuzushiji-v17-encoder-fp16.onnx',   // WebGPU 用
+    decoderPrefill: 'kuzushiji-v17-decoder-prefill-int8.onnx',
+    decoderStep:    'kuzushiji-v17-decoder-step-int8.onnx',
+  },
 }
-export const HAS_KV_CACHE_DECODER = (version: OcrModelVersion): version is 'v12' | 'v13' | 'v16fs' =>
-  version === 'v12' || version === 'v13' || version === 'v16fs'
+export const HAS_KV_CACHE_DECODER = (version: OcrModelVersion): version is 'v12' | 'v13' | 'v16fs' | 'v17' =>
+  version === 'v12' || version === 'v13' || version === 'v16fs' || version === 'v17'
 
 /** WebGPU 用 fp16 encoder を持つ版か。 */
 export const HAS_FP16_ENCODER = (version: OcrModelVersion): boolean => {
