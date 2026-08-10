@@ -19,8 +19,7 @@ interface SettingsModalProps {
 }
 
 const OCR_VERSIONS: { value: OcrModelVersion; label: string; descJa: string; descEn: string }[] = [
-  { value: 'v17', label: 'v17', descJa: 'ConvNeXt V2 + 256×2048 高解像度 + KV キャッシュ。語彙 7710。行検出をやり直した学習データで再学習し、同一条件で v16fs を上回る（test plain CER 0.0732 対 0.0777）。帳簿・割書に特に強い（推奨）', descEn: 'ConvNeXt V2 + 256×2048 high-res + KV cache. 7710 vocab. Retrained on rebuilt line-detection data; beats v16fs on the same test set (test plain CER 0.0732 vs 0.0777). Notably better on ledgers and inline double-column text (recommended)' },
-  { value: 'v16fs', label: 'v16fs', descJa: 'ConvNeXt V2 + 256×2048 高解像度 + KV キャッシュ。語彙 7710（旧字/異体字を忠実保存）。v17 の一世代前', descEn: 'ConvNeXt V2 + 256×2048 high-res + KV cache. 7710 vocab (faithful old/variant kanji). Previous generation of v17' },
+  { value: 'v17', label: 'v17', descJa: 'ConvNeXt V2 + 256×2048 高解像度 + KV キャッシュ。語彙 7,710（旧字・異体字を忠実保存）。test plain CER 0.073（推奨）', descEn: 'ConvNeXt V2 + 256×2048 high-res + KV cache. 7,710 vocab (faithful old/variant kanji). test plain CER 0.073 (recommended)' },
   { value: 'v12', label: 'v12', descJa: 'ConvNeXt V1 + 192×1536 高解像度 + KV キャッシュ。高速・軽量', descEn: 'ConvNeXt V1 + 192×1536 high-res + KV cache. Faster, lighter' },
 ]
 
