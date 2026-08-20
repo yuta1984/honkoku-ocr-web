@@ -19,7 +19,7 @@ interface SettingsModalProps {
 }
 
 const OCR_VERSIONS: { value: OcrModelVersion; label: string; descJa: string; descEn: string }[] = [
-  { value: 'v17', label: 'v17', descJa: 'ConvNeXt V2 + 256×2048 高解像度 + KV キャッシュ。語彙 7,710（旧字・異体字を忠実保存）。test plain CER 0.073（推奨）', descEn: 'ConvNeXt V2 + 256×2048 high-res + KV cache. 7,710 vocab (faithful old/variant kanji). test plain CER 0.073 (recommended)' },
+  { value: 'v18', label: 'v18', descJa: 'ConvNeXt V2 + 256×2048 高解像度 + KV キャッシュ。語彙 7,710（旧字・異体字を忠実保存）。ふりがな・返り点・割書の注釈構造を本文と同時に出力（推奨）', descEn: 'ConvNeXt V2 + 256×2048 high-res + KV cache. 7,710 vocab (faithful old/variant kanji). Emits furigana, kaeriten and warigaki alongside the body text (recommended)' },
   { value: 'v12', label: 'v12', descJa: 'ConvNeXt V1 + 192×1536 高解像度 + KV キャッシュ。高速・軽量', descEn: 'ConvNeXt V1 + 192×1536 high-res + KV cache. Faster, lighter' },
 ]
 

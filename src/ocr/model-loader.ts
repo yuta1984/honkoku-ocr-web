@@ -32,8 +32,10 @@ const modelUrl = (file: string) => (MODEL_BASE_URL ? `${MODEL_BASE_URL}/${file}`
 //   v4 データセットに差し替えたもの。同一 test 集合での対照で v16fs 0.0777 → 0.0732(-5.7%、
 //   ペアードブートストラップ 1000/1000 で有意)。改善は行画像の欠損が直撃していた箇所に集中し、
 //   帳簿系 -23% / 割書F1 0.386→0.441。既定。
-export type OcrModelVersion = 'v7' | 'v8' | 'v11' | 'v12' | 'v13' | 'v16fs' | 'v17'
-export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v17'
+// v18 = v17 と同一構成。翻刻記法の前処理を修正し、返り点(レ点)が学習ラベルとして
+//   正しくタグ化されるようにしたうえで再学習した(v17 はレ点を1つも出力できなかった)。
+export type OcrModelVersion = 'v7' | 'v8' | 'v11' | 'v12' | 'v13' | 'v16fs' | 'v17' | 'v18'
+export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v18'
 
 // レイアウト検出モデルの版。設定で切替可能（localStorage 永続化、useLayoutVersion）。
 //   yolo   = koten-layout-best.onnx       (5クラス YOLOv8。手書き/活字=行、図版/印判=領域。本システムオリジナル)
@@ -82,9 +84,17 @@ const OCR_MODEL_FILES: Record<OcrModelVersion, OcrModelFiles> = {
     decoderPrefill: 'kuzushiji-v17-decoder-prefill-int8.onnx',
     decoderStep:    'kuzushiji-v17-decoder-step-int8.onnx',
   },
+  // v18: v17 と完全同型(256×2048, enc_seq=512, mw=72, RoBERTa 512/6/8, 語彙7710)。
+  //   vocab は v17/v16fs と byte 同一。
+  v18: {
+    encoder: 'kuzushiji-v18-encoder-int8.onnx',
+    encoderFp16: 'kuzushiji-v18-encoder-fp16.onnx',   // WebGPU 用
+    decoderPrefill: 'kuzushiji-v18-decoder-prefill-int8.onnx',
+    decoderStep:    'kuzushiji-v18-decoder-step-int8.onnx',
+  },
 }
-export const HAS_KV_CACHE_DECODER = (version: OcrModelVersion): version is 'v12' | 'v13' | 'v16fs' | 'v17' =>
-  version === 'v12' || version === 'v13' || version === 'v16fs' || version === 'v17'
+export const HAS_KV_CACHE_DECODER = (version: OcrModelVersion): version is 'v12' | 'v13' | 'v16fs' | 'v17' | 'v18' =>
+  version === 'v12' || version === 'v13' || version === 'v16fs' || version === 'v17' || version === 'v18'
 
 /** WebGPU 用 fp16 encoder を持つ版か。 */
 export const HAS_FP16_ENCODER = (version: OcrModelVersion): boolean => {
