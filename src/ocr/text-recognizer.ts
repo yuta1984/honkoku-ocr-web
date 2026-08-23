@@ -11,7 +11,7 @@
  *               (初回 CLS を prefill に通して KV 構築 → 以降 step に 1 token + past_kv を渡す)
  *
  * 前処理 to_pixel は学習 eval transform と完全一致:
- *   1. 幅>120 なら左 45px を crop（隣接行の混入除去）
+ *   1. (左クロップは廃止。呼び出し側が左に余白を付けない)
  *   2. 縦長なら 90度時計回り回転（PIL rotate(-90, expand) と等価）
  *   3. 高さ H にアスペクト比保持リサイズ、幅は最大 W
  *   4. 幅 < W は右側を白(255)パディング
@@ -32,8 +32,6 @@ const MAX_LEN = 192
 // 行末の崩壊(同一/短周期トークンの連鎖)を打ち切るガード。直近 REPEAT_WINDOW トークンが
 // 周期 ≤4 で反復していたら停止。12連続は通常文では起こらず、崩壊のみを捕捉する。
 const REPEAT_WINDOW = 12
-const LEFT_CROP_PX = 45
-const MIN_W_FOR_CROP = 120
 
 // per-line deskew（傾き補正）パラメータ
 const SKEW_MAX_DEG = 12      // 探索する最大傾き角(±)
@@ -283,14 +281,12 @@ export class TextRecognizer {
     const ctx = canvas.getContext('2d')!
     ctx.putImageData(work, 0, 0)
 
-    // 1. 左 45px crop（幅 > 120 のとき）
-    if (w > MIN_W_FOR_CROP) {
-      const cw = w - LEFT_CROP_PX
-      const cropped = new OffscreenCanvas(cw, h)
-      cropped.getContext('2d')!.drawImage(canvas, LEFT_CROP_PX, 0, cw, h, 0, 0, cw, h)
-      canvas = cropped
-      w = cw
-    }
+    // 1. 左クロップは行わない。呼び出し側(useOCRWorker)が左に余白を付けないため、
+    //    入力は既に「左=bbox端」になっている。学習データ側も同じ幾何
+    //    (build_v3.preprocess_image が保存 crop から左45pxを除去済み)。
+    //    以前はここで `幅>120` のとき一律に左45pxを削っていたが、右端の行で
+    //    条件を満たさずスキップされ隣接行が混入する／左端の行では自身の文字を
+    //    削るという不具合があったため廃止した。
 
     // 2. 縦長 -> 90度時計回り回転（PIL rotate(-90, expand=True) 相当）
     if (h > w) {

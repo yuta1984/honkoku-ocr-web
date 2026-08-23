@@ -40,9 +40,17 @@ const WEBGPU_REC_WORKERS = Math.min(2, N_REC_WORKERS)
 
 // 行 crop の余白(px)。レイアウト bbox は主文字に密着しており、縦書きでは
 // ふりがなが主行の右側にはみ出すため、そのまま切ると ふりがな/字形 が切れる。
-// 上下左右に余白を付けて crop する。左の余白は text-recognizer の to_pixel が
-// 行う「左45pxクロップ」(v7学習transform由来・隣接行の混入除去)で相殺されるため、
-// 実質的に 上・下・右 に余白が付く（＝主文字を削らずに ふりがな を含められる）。
+// そこで **上・下・右** にのみ余白を付ける（左は bbox 端のまま）。
+//
+// ★左に余白を付けてはならない。左隣は縦書きの「次の行」であり、混入すると
+//   そちらを認識してしまう。学習データも「左=bbox端 / 上下右=+45px」で作られている
+//   (build_v3.preprocess_image が保存 crop から左45pxを除去済み)。
+//
+// 以前は「左に45px足して to_pixel 側で45px削る」往復をしていたが、to_pixel の
+// 削除条件が `幅>120` だったため、**右端の行で右余白が画像端にクランプされて
+// 幅が120以下に落ちると削除がスキップされ、左隣の行がそのまま入力に混入していた**
+// (幅60の行なら回転後の画像の約43%が隣接行)。低解像度の入力ほど発生しやすく、
+// 逆に左端の行では左余白が45px未満なのに45px削られて自身の文字が欠けていた。
 const OCR_CROP_MARGIN = 45
 
 const initialModelState: ModelState = {
@@ -201,9 +209,9 @@ export function useOCRWorker(modelVersion: OcrModelVersion, layoutVersion: Layou
         const W = imageData.width
         const H = imageData.height
         const padded = lines.map((l) => {
-          const x = Math.max(0, l.x - OCR_CROP_MARGIN)
+          const x = Math.max(0, l.x)                                   // 左は広げない(左隣＝次の行)
           const y = Math.max(0, l.y - OCR_CROP_MARGIN)
-          const right = Math.min(W, l.x + l.width + OCR_CROP_MARGIN)
+          const right = Math.min(W, l.x + l.width + OCR_CROP_MARGIN)   // 右にふりがなが出る
           const bottom = Math.min(H, l.y + l.height + OCR_CROP_MARGIN)
           return { x, y, width: right - x, height: bottom - y }
         })
