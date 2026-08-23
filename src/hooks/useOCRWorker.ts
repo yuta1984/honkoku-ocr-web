@@ -51,6 +51,11 @@ const WEBGPU_REC_WORKERS = Math.min(2, N_REC_WORKERS)
 // 幅が120以下に落ちると削除がスキップされ、左隣の行がそのまま入力に混入していた**
 // (幅60の行なら回転後の画像の約43%が隣接行)。低解像度の入力ほど発生しやすく、
 // 逆に左端の行では左余白が45px未満なのに45px削られて自身の文字が欠けていた。
+//
+// ★余白は画像端でクランプしない(cropLines が白で埋める)。crop の「幅」は回転後に
+//   高さ256へ正規化されるため、余白が取れるかどうかで**文字の拡大率が変わる**。
+//   本文ぎりぎりで切られたページでは端の行だけ右余白が取れず、その行だけ文字が
+//   1.1〜1.5倍に拡大された別スケールの入力になって認識が崩れていた。
 const OCR_CROP_MARGIN = 45
 
 const initialModelState: ModelState = {
@@ -205,16 +210,15 @@ export function useOCRWorker(modelVersion: OcrModelVersion, layoutVersion: Layou
         if (workers.length === 0) return reject(new Error('Recognition workers not ready'))
         if (lines.length === 0) return resolve(new Map())
 
-        // 行 bbox に上下左右の余白を付けて crop（ふりがな/字形の切れを防ぐ）
-        const W = imageData.width
-        const H = imageData.height
-        const padded = lines.map((l) => {
-          const x = Math.max(0, l.x)                                   // 左は広げない(左隣＝次の行)
-          const y = Math.max(0, l.y - OCR_CROP_MARGIN)
-          const right = Math.min(W, l.x + l.width + OCR_CROP_MARGIN)   // 右にふりがなが出る
-          const bottom = Math.min(H, l.y + l.height + OCR_CROP_MARGIN)
-          return { x, y, width: right - x, height: bottom - y }
-        })
+        // 行 bbox に 上・下・右 の余白を付けて crop（ふりがな/字形の切れを防ぐ）。
+        // **画像端で切り詰めない**。はみ出す分は cropLines が白で埋めるので、端の行も
+        // 内側の行とまったく同じ幾何（左=bbox端 / 上下右=+45px）になる。
+        const padded = lines.map((l) => ({
+          x: l.x,                                        // 左は広げない(左隣＝縦書きの次の行)
+          y: l.y - OCR_CROP_MARGIN,
+          width: l.width + OCR_CROP_MARGIN,              // 右にふりがなが出る
+          height: l.height + 2 * OCR_CROP_MARGIN,
+        }))
         const crops = cropLines(imageData, padded)
 
         // round-robin で各ワーカーへ分配

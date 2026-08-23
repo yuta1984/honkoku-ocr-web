@@ -63,15 +63,19 @@ ConvInteger 未実装で動かない**（parity 検証は decoder のみ、encod
 `<ruby>/<rt>/<KAERI>/<OKURI>/<WARI>/<TATE>/<BLOCK>` 等の Koji 特殊トークンを含む。
 
 ### 行 OCR 前処理（`to_pixel` を学習 eval transform と完全一致させること）
-`demo_onnx_v7.py` 準拠。①幅>120px なら左45px crop（隣接行混入除去）②縦長なら90度
+`demo_onnx_v7.py` 準拠。①（左クロップは廃止。呼び出し側が左に余白を付けない）②縦長なら90度
 **時計回り**回転（PIL `rotate(-90, expand)` 相当）③**高さ H** にアスペクト比保持リサイズ
 （幅は最大 **W**）④右側を白パディング ⑤/255 後 ImageNet 正規化、NCHW。
 版別の `(H, W)`: v7/v8/v11 = (128, 1024)、v12 = (192, 1536)、**v13 = (256, 2048)**。`text-recognizer.ts` の
 `IMG_DIMS[version]` で切替。この前処理を崩すと認識精度が大きく劣化する。
 
 追加処理（text-recognizer.ts）:
-- **行crop余白** (useOCRWorker `OCR_CROP_MARGIN=45`): 行bbox全4辺を45px拡張してcrop。
-  左45pxは to_pixel の左クロップで相殺 → 実質 上/下/右 に余白（ふりがな=右側 を切らない）。
+- **行crop余白** (useOCRWorker `OCR_CROP_MARGIN=45`): 行bbox の **上/下/右のみ** 45px 拡張して
+  crop（ふりがな=右側 を切らない。左は縦書きの次の行なので広げない）。学習側の幾何
+  （`SAVE_CROP_MARGIN=45` で4辺拡張 → `preprocess_image` が左45pxを除去）と一致する。
+  **画像端でクランプせず、はみ出す分は `cropLines` が白で埋める**。crop 幅は回転後に
+  高さ256へ正規化されるため、余白の有無で文字の拡大率が変わってしまうため（端の行が
+  1.1〜1.5倍に拡大され認識が崩れる不具合があった）。
 - **per-line deskew**: `to_pixel` 先頭で投影プロファイル法により行ごとの傾き角を推定
   （±12度探索、Σ列² 最大化）し |角|≥2度 のとき回転補正。直立行は無補正（ジッタ防止）。
 

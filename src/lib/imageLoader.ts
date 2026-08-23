@@ -208,7 +208,15 @@ export function imageDataToDataUrl(imageData: ImageData, quality = 0.85): string
   return canvas.toDataURL('image/jpeg', quality)
 }
 
-/** フル画像から行領域を一括 crop（source canvas を1度だけ生成して使い回す） */
+/** フル画像から行領域を一括 crop（source canvas を1度だけ生成して使い回す）。
+ *
+ * box は画像の外にはみ出していてよい。**はみ出した分は白で埋める**（画像端で切り詰めない）。
+ * 行 OCR は crop の「幅」を回転後の高さとみなして 256px へ正規化するため、幅が余白の
+ * 有無で変わると **文字の拡大率がそのまま変わってしまう**。ページが本文ぎりぎりで
+ * 切られていると端の行だけ余白を取れず、その行だけ文字が 1.1〜1.5 倍に拡大されて
+ * 学習時と別スケールの入力になり、認識が崩れる（実例: 右端の行で発生）。
+ * 白で埋めれば、端の行も内側の行と同一の幾何になる。
+ */
 export function cropLines(
   imageData: ImageData,
   boxes: Array<{ x: number; y: number; width: number; height: number }>
@@ -219,13 +227,23 @@ export function cropLines(
   src.getContext('2d')!.putImageData(imageData, 0, 0)
 
   return boxes.map((b) => {
+    const bx = Math.round(b.x)
+    const by = Math.round(b.y)
     const w = Math.max(1, Math.round(b.width))
     const h = Math.max(1, Math.round(b.height))
     const c = document.createElement('canvas')
     c.width = w
     c.height = h
     const ctx = c.getContext('2d')!
-    ctx.drawImage(src, b.x, b.y, b.width, b.height, 0, 0, w, h)
+    ctx.fillStyle = 'rgb(255,255,255)'
+    ctx.fillRect(0, 0, w, h)
+
+    // 画像と重なる部分だけを、crop 内の正しい位置へ描く（残りは白のまま）
+    const sx = Math.max(0, bx)
+    const sy = Math.max(0, by)
+    const sw = Math.min(src.width, bx + w) - sx
+    const sh = Math.min(src.height, by + h) - sy
+    if (sw > 0 && sh > 0) ctx.drawImage(src, sx, sy, sw, sh, sx - bx, sy - by, sw, sh)
     return ctx.getImageData(0, 0, w, h)
   })
 }
