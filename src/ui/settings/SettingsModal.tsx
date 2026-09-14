@@ -19,7 +19,8 @@ interface SettingsModalProps {
 }
 
 const OCR_VERSIONS: { value: OcrModelVersion; label: string; descJa: string; descEn: string }[] = [
-  { value: 'v18', label: 'v18', descJa: 'ConvNeXt V2 + 256×2048 高解像度 + KV キャッシュ。語彙 7,710（旧字・異体字を忠実保存）。ふりがな・返り点・割書の注釈構造を本文と同時に出力（推奨）', descEn: 'ConvNeXt V2 + 256×2048 high-res + KV cache. 7,710 vocab (faithful old/variant kanji). Emits furigana, kaeriten and warigaki alongside the body text (recommended)' },
+  { value: 'v18', label: 'v18', descJa: 'ConvNeXt V2 + 256×2048 高解像度 + KV キャッシュ。語彙 7,710（旧字・異体字を忠実保存）。ふりがな・返り点・割書の注釈構造を本文と同時に出力', descEn: 'ConvNeXt V2 + 256×2048 high-res + KV cache. 7,710 vocab (faithful old/variant kanji). Emits furigana, kaeriten and warigaki alongside the body text' },
+  { value: 'v19', label: 'v19', descJa: 'v18 と同構成。学習ラベルのかな正規化を外し紙面に忠実な表記で学習。送り仮名の再現が大きく改善（F1 0.15→0.34）し、返り点・本文も向上。送り仮名は紙面どおり片仮名で出力（推奨）', descEn: 'Same architecture as v18, trained on page-faithful labels (kana normalization removed). Much better okurigana (F1 0.15→0.34) plus gains on kaeriten and body text. Okurigana is emitted in katakana as written (recommended)' },
   { value: 'v12', label: 'v12', descJa: 'ConvNeXt V1 + 192×1536 高解像度 + KV キャッシュ。高速・軽量', descEn: 'ConvNeXt V1 + 192×1536 high-res + KV cache. Faster, lighter' },
 ]
 

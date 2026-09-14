@@ -34,8 +34,14 @@ const modelUrl = (file: string) => (MODEL_BASE_URL ? `${MODEL_BASE_URL}/${file}`
 //   帳簿系 -23% / 割書F1 0.386→0.441。既定。
 // v18 = v17 と同一構成。翻刻記法の前処理を修正し、返り点(レ点)が学習ラベルとして
 //   正しくタグ化されるようにしたうえで再学習した(v17 はレ点を1つも出力できなかった)。
-export type OcrModelVersion = 'v7' | 'v8' | 'v11' | 'v12' | 'v13' | 'v16fs' | 'v17' | 'v18'
-export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v18'
+// v19 = v18 と同一構成。学習ラベルのかな正規化(孤立カタカナ→ひらがなの畳み込み)を止め、
+//   紙面に忠実な表記で学習した。v18 は送り仮名の内容を平仮名へ畳んでいたため、小書き片仮名の
+//   送り仮名・本文の孤立片仮名・本文の平仮名がすべて同じラベルに潰れ、送り仮名の手がかりが
+//   大きさと位置だけに縮退していた。同一 test 58,521行での対照で送り仮名 F1 0.153→0.342、
+//   返り点 0.822→0.862、本文 CER も有意に改善。既定。
+//   ★出力の非互換: v19 は送り仮名を <OKURI>ニ</OKURI> と紙面どおり片仮名で出す(v18 は に)。
+export type OcrModelVersion = 'v7' | 'v8' | 'v11' | 'v12' | 'v13' | 'v16fs' | 'v17' | 'v18' | 'v19'
+export const DEFAULT_OCR_VERSION: OcrModelVersion = 'v19'
 
 // レイアウト検出モデルの版。設定で切替可能（localStorage 永続化、useLayoutVersion）。
 //   yolo   = koten-layout-best.onnx       (5クラス YOLOv8。手書き/活字=行、図版/印判=領域。本システムオリジナル)
@@ -92,9 +98,18 @@ const OCR_MODEL_FILES: Record<OcrModelVersion, OcrModelFiles> = {
     decoderPrefill: 'kuzushiji-v18-decoder-prefill-int8.onnx',
     decoderStep:    'kuzushiji-v18-decoder-step-int8.onnx',
   },
+  // v19: v18 と完全同型(256×2048, enc_seq=512, mw=72, RoBERTa 512/6/8, 語彙7710)。
+  //   vocab は v18/v17/v16fs と byte 同一(tokenizer.json md5 一致を確認済)。
+  v19: {
+    encoder: 'kuzushiji-v19-encoder-int8.onnx',
+    encoderFp16: 'kuzushiji-v19-encoder-fp16.onnx',   // WebGPU 用
+    decoderPrefill: 'kuzushiji-v19-decoder-prefill-int8.onnx',
+    decoderStep:    'kuzushiji-v19-decoder-step-int8.onnx',
+  },
 }
-export const HAS_KV_CACHE_DECODER = (version: OcrModelVersion): version is 'v12' | 'v13' | 'v16fs' | 'v17' | 'v18' =>
-  version === 'v12' || version === 'v13' || version === 'v16fs' || version === 'v17' || version === 'v18'
+export const HAS_KV_CACHE_DECODER = (version: OcrModelVersion): version is 'v12' | 'v13' | 'v16fs' | 'v17' | 'v18' | 'v19' =>
+  version === 'v12' || version === 'v13' || version === 'v16fs' || version === 'v17' ||
+  version === 'v18' || version === 'v19'
 
 /** WebGPU 用 fp16 encoder を持つ版か。 */
 export const HAS_FP16_ENCODER = (version: OcrModelVersion): boolean => {
