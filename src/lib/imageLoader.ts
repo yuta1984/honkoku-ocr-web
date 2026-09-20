@@ -9,12 +9,26 @@ const THUMBNAIL_MAX_WIDTH = 200
 
 // 登録画像の長辺上限(px)。10MB級のJPEG等を展開したフル解像度 ImageData を多数保持すると
 // メモリが枯渇する（例 5000×7000 ≈ 140MB/枚）。読み込み時にこの上限へ縮小して保持する。
-// OCRモデル入力は 1行あたり 128×1024px 固定で、3500px なら密なページでも行幅が128px以上を
+// OCRモデル入力は 1行あたり 256×2048px 固定で、3500px なら密なページでも行幅が十分に
 // 保てるため（＝モデル入力へは縮小方向）、認識精度は実質落ちない。
 export const MAX_IMAGE_DIM = 3500
 
+// 長辺の**下限**(px)。これ未満の画像は拡大してから処理する。
+//
+// ★なぜ必要か: 学習データの行 bbox 幅は中央値 187px（元ページ解像度）だったが、
+//   1000px 級の密な頁をそのまま流すと行幅が 20px 前後まで落ちる。すると
+//     (1) 行検出が過剰に断片化する（幅 9px の box まで出る）
+//     (2) 行 crop の余白が行幅を超え、crop の大半が隣の列になる
+//   実測（1000×793 の頁）: 44行/行幅中央値19px/行間2px → 隣接行が同じテキストを出力。
+//   3.5倍に拡大すると 39行/行幅67px/行間14px となり重複は 0 件になった。
+//   拡大は情報を増やさないが、**モデルと検出器が学習した幾何**に合わせる効果がある。
+export const MIN_IMAGE_DIM = 2000
+
 function fitScale(w: number, h: number): number {
-  return Math.min(1, MAX_IMAGE_DIM / Math.max(w, h))
+  const long = Math.max(w, h)
+  if (long > MAX_IMAGE_DIM) return MAX_IMAGE_DIM / long
+  if (long < MIN_IMAGE_DIM) return MIN_IMAGE_DIM / long
+  return 1
 }
 
 /** <img> を上限内に収めて ImageData 化（縮小描画でフル解像度の確保を避ける） */
@@ -34,10 +48,10 @@ function imageElementToImageData(img: HTMLImageElement): ImageData {
   return ctx.getImageData(0, 0, w, h)
 }
 
-/** 既存 ImageData が上限を超える場合のみ縮小（TIFF 用） */
-function maybeDownscaleImageData(src: ImageData): ImageData {
+/** 既存 ImageData を [MIN_IMAGE_DIM, MAX_IMAGE_DIM] へ収める（TIFF 用。拡大もする） */
+function maybeRescaleImageData(src: ImageData): ImageData {
   const scale = fitScale(src.width, src.height)
-  if (scale >= 1) return src
+  if (scale === 1) return src
   const w = Math.max(1, Math.round(src.width * scale))
   const h = Math.max(1, Math.round(src.height * scale))
   const srcCanvas = document.createElement('canvas')
@@ -123,7 +137,7 @@ export async function tiffToProcessedImages(file: File): Promise<ProcessedImage[
     const w = ifds[i].width
     const h = ifds[i].height
     const rgba = UTIF.toRGBA8(ifds[i])
-    const imageData = maybeDownscaleImageData(new ImageData(new Uint8ClampedArray(rgba), w, h))
+    const imageData = maybeRescaleImageData(new ImageData(new Uint8ClampedArray(rgba), w, h))
     results.push(await packImageData(imageData, file.name, ifds.length > 1 ? i + 1 : undefined))
   }
 

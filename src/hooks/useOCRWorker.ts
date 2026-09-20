@@ -38,25 +38,27 @@ const N_REC_WORKERS =
 // 重みを VRAM に持つ(~183MB)ため増やしすぎは OOM 危険 → 2 に抑える(低性能機は 1)。
 const WEBGPU_REC_WORKERS = Math.min(2, N_REC_WORKERS)
 
-// 行 crop の余白(px)。レイアウト bbox は主文字に密着しており、縦書きでは
-// ふりがなが主行の右側にはみ出すため、そのまま切ると ふりがな/字形 が切れる。
-// そこで **上・下・右** にのみ余白を付ける（左は bbox 端のまま）。
+// 行 crop の余白。レイアウト bbox は主文字に密着しており、縦書きではふりがなが主行の
+// 右側にはみ出すため、そのまま切ると ふりがな/字形 が切れる。そこで **上・下・右** にのみ
+// 余白を付ける（左は bbox 端のまま）。
 //
 // ★左に余白を付けてはならない。左隣は縦書きの「次の行」であり、混入すると
 //   そちらを認識してしまう。学習データも「左=bbox端 / 上下右=+45px」で作られている
 //   (build_v3.preprocess_image が保存 crop から左45pxを除去済み)。
 //
-// 以前は「左に45px足して to_pixel 側で45px削る」往復をしていたが、to_pixel の
-// 削除条件が `幅>120` だったため、**右端の行で右余白が画像端にクランプされて
-// 幅が120以下に落ちると削除がスキップされ、左隣の行がそのまま入力に混入していた**
-// (幅60の行なら回転後の画像の約43%が隣接行)。低解像度の入力ほど発生しやすく、
-// 逆に左端の行では左余白が45px未満なのに45px削られて自身の文字が欠けていた。
-//
-// ★余白は画像端でクランプしない(cropLines が白で埋める)。crop の「幅」は回転後に
-//   高さ256へ正規化されるため、余白が取れるかどうかで**文字の拡大率が変わる**。
-//   本文ぎりぎりで切られたページでは端の行だけ右余白が取れず、その行だけ文字が
-//   1.1〜1.5倍に拡大された別スケールの入力になって認識が崩れていた。
-const OCR_CROP_MARGIN = 45
+// ★★余白は**行幅に比例**させる（絶対 px にしない）。
+//   学習データ(build_job.py の SAVE_CROP_MARGIN=45)は**元ページ解像度**に 45px を当てており、
+//   行 bbox 幅の中央値は 187px。つまりモデルが見た余白は crop 幅の 19%(最大でも 32%)だった。
+//   これを絶対 45px のまま低解像度の入力に当てると比率が跳ね上がり、crop の大半が隣の列になる。
+//   実測(1000×793 の頁): 行幅中央値 19px に対し余白 45px = 行幅の 2.4倍・crop の 70%。
+//   結果として**隣接する複数の行がほぼ同じ画素を見て、同じテキストを出力**していた。
+//   解像度スイープ(実ページ)では長辺 1800px 以下で固定 45px が急激に崩れ(gold一致 0.84→0.06)、
+//   比率余白は 0.70〜0.88 を維持した。
+const OCR_CROP_MARGIN_RATIO = 0.24        // = 45px / 行幅中央値 187px（学習時の実効比率）
+const OCR_CROP_MARGIN_MAX = 45            // 原寸相当。学習時これを超える余白は存在しない
+const OCR_CROP_MARGIN_MIN = 4
+const cropMargin = (lineWidth: number): number =>
+  Math.min(OCR_CROP_MARGIN_MAX, Math.max(OCR_CROP_MARGIN_MIN, Math.round(lineWidth * OCR_CROP_MARGIN_RATIO)))
 
 const initialModelState: ModelState = {
   status: 'loading_model',
@@ -213,12 +215,15 @@ export function useOCRWorker(modelVersion: OcrModelVersion, layoutVersion: Layou
         // 行 bbox に 上・下・右 の余白を付けて crop（ふりがな/字形の切れを防ぐ）。
         // **画像端で切り詰めない**。はみ出す分は cropLines が白で埋めるので、端の行も
         // 内側の行とまったく同じ幾何（左=bbox端 / 上下右=+45px）になる。
-        const padded = lines.map((l) => ({
-          x: l.x,                                        // 左は広げない(左隣＝縦書きの次の行)
-          y: l.y - OCR_CROP_MARGIN,
-          width: l.width + OCR_CROP_MARGIN,              // 右にふりがなが出る
-          height: l.height + 2 * OCR_CROP_MARGIN,
-        }))
+        const padded = lines.map((l) => {
+          const m = cropMargin(l.width)                  // 行ごとに幅へ比例させる
+          return {
+            x: l.x,                                      // 左は広げない(左隣＝縦書きの次の行)
+            y: l.y - m,
+            width: l.width + m,                          // 右にふりがなが出る
+            height: l.height + 2 * m,
+          }
+        })
         const crops = cropLines(imageData, padded)
 
         // round-robin で各ワーカーへ分配

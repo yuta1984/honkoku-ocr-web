@@ -3,7 +3,7 @@
  */
 
 import type { ProcessedImage } from '../types/ocr'
-import { packImageData, MAX_IMAGE_DIM } from './imageLoader'
+import { packImageData, MAX_IMAGE_DIM, MIN_IMAGE_DIM } from './imageLoader'
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 let pdfjsLib: typeof import('pdfjs-dist') | null = null
@@ -33,9 +33,17 @@ export async function pdfToProcessedImages(
     if (onProgress) onProgress(pageNum, totalPages)
 
     const page = await pdf.getPage(pageNum)
-    // レンダリング解像度の上限（長辺 MAX_IMAGE_DIM）。大きなページでメモリ枯渇しないよう scale を抑える。
+    // レンダリング解像度を長辺 [MIN_IMAGE_DIM, MAX_IMAGE_DIM] に収める。
+    //   上限: 大きなページでメモリ枯渇しないよう scale を抑える。
+    //   下限: 小さく描くと行幅が学習時(中央値187px)から大きく外れ、行検出が断片化して
+    //         隣接行が同じテキストを出す。★PDF はベクタから描き直せるので、画素を
+    //         引き伸ばす imageLoader 側の拡大と違い、ここでの底上げは実際に精細になる。
     const base = page.getViewport({ scale: 1 })
-    const effScale = Math.min(scale, MAX_IMAGE_DIM / Math.max(base.width, base.height))
+    const long = Math.max(base.width, base.height)
+    const effScale = Math.min(
+      Math.max(scale, MIN_IMAGE_DIM / long),
+      MAX_IMAGE_DIM / long,
+    )
     const viewport = page.getViewport({ scale: effScale })
 
     const canvas = document.createElement('canvas')
